@@ -42,11 +42,31 @@ export const generatedRoutes: GeneratedRoute[] = [
   {
     name: 'evaluation-manager',
     path: '/evaluation-manager',
-    component: 'layout.base$view.evaluation-manager',
+    component: 'layout.base',
     meta: {
       title: 'evaluation-manager',
       i18nKey: 'route.evaluation-manager'
-    }
+    },
+    children: [
+      {
+        name: 'evaluation-manager_evaluation-accessment',
+        path: '/evaluation-manager/evaluation-accessment',
+        component: 'view.evaluation-manager_evaluation-accessment',
+        meta: {
+          title: 'evaluation-manager_evaluation-accessment',
+          i18nKey: 'route.evaluation-manager_evaluation-accessment'
+        }
+      },
+      {
+        name: 'evaluation-manager_evaluation-template',
+        path: '/evaluation-manager/evaluation-template',
+        component: 'view.evaluation-manager_evaluation-template',
+        meta: {
+          title: 'evaluation-manager_evaluation-template',
+          i18nKey: 'route.evaluation-manager_evaluation-template'
+        }
+      }
+    ]
   },
   {
     name: 'home',
@@ -83,6 +103,26 @@ export const generatedRoutes: GeneratedRoute[] = [
       constant: true,
       hideInMenu: true
     }
+  },
+  {
+    name: 'system-manager',
+    path: '/system-manager',
+    component: 'layout.base',
+    meta: {
+      title: 'system-manager',
+      i18nKey: 'route.system-manager'
+    },
+    children: [
+      {
+        name: 'system-manager_dict-manager',
+        path: '/system-manager/dict-manager',
+        component: 'view.system-manager_dict-manager',
+        meta: {
+          title: 'system-manager_dict-manager',
+          i18nKey: 'route.system-manager_dict-manager'
+        }
+      }
+    ]
   },
   {
     name: 'user-manager',

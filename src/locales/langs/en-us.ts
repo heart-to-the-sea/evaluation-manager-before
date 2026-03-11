@@ -225,7 +225,13 @@ const local: App.I18n.Schema = {
     404: 'Page Not Found',
     500: 'Server Error',
     'iframe-page': 'Iframe',
-    home: 'Home'
+    home: 'Home',
+    'evaluation-manager': '/evaluation-manager',
+    'evaluation-manager_evaluation-accessment': '/evaluation-manager/evaluation-accessment',
+    'evaluation-manager_evaluation-template': '/evaluation-manager/evaluation-template',
+    'system-manager': '/system-manager',
+    'system-manager_dict-manager': '/system-manager/dict-manager',
+    'user-manager': '/user-manager'
   },
   page: {
     login: {

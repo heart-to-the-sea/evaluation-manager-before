@@ -224,7 +224,11 @@ const local: App.I18n.Schema = {
     'iframe-page': '外链页面',
     home: '首页',
     'evaluation-manager': '考核管理',
-    'user-manager': '员工管理'
+    'evaluation-manager_evaluation-accessment': '员工考核',
+    'evaluation-manager_evaluation-template': '考核模板',
+    'user-manager': '员工管理',
+    'system-manager': '系统管理',
+    'system-manager_dict-manager': '字典管理'
   },
   page: {
     login: {

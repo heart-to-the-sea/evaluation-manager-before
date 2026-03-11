@@ -1,7 +1,9 @@
 <script setup lang="tsx">
-import { ref } from 'vue';
-import { NTimeline, NTimelineItem } from 'naive-ui';
+import { onActivated, ref } from 'vue';
+import { NButton, NGrid, NIcon, NSpace, NTimeline, NTimelineItem } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
+import { AddCircle } from '@vicons/ionicons5';
+import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 
 interface RowData {
   key: number;
@@ -11,13 +13,16 @@ interface RowData {
   remark: string;
   tags: string[];
 }
-
+onActivated(() => {
+  console.log('111');
+});
 const data = Array.from({ length: 100 }).map((_, index) => ({
   key: index,
   name: `Edward King ${index}`,
   age: 32,
   'name-1': '2026-03-11 12:30:00',
   'name-2': '实习生培训考核',
+  result: '通过',
   remark: `London, Park Lane no. ${index}London`
 }));
 const columns = ref<DataTableColumns<RowData>>([
@@ -54,7 +59,7 @@ const columns = ref<DataTableColumns<RowData>>([
     title: '考核阶段',
     key: 'evaluationManager',
     align: 'left',
-    render(row: RowData) {
+    render(_: RowData) {
       return (
         <div style={{ overflowX: 'auto' }}>
           <NTimeline horizontal>
@@ -67,13 +72,20 @@ const columns = ref<DataTableColumns<RowData>>([
       );
     }
   },
-
+  {
+    title: '考核结果',
+    key: 'result',
+    width: 120,
+    align: 'center',
+    fixed: 'right'
+  },
   {
     title: '操作',
     key: 'age',
     width: 200,
     align: 'center',
-    render(row: RowData) {
+    fixed: 'right',
+    render(_: RowData) {
       return (
         <>
           <NButton type="primary" quaternary>
@@ -91,17 +103,34 @@ const pagination = { pageSize: 100 };
 </script>
 
 <template>
-  <NSpace vertical>
-    <NDataTable
-      :key="(row: RowData) => row.key"
-      :bordered="false"
-      :single-line="false"
-      :columns="columns"
-      :data="data"
-      :pagination="pagination"
-      :scroll-x="1800"
-      :style="{ height: `calc(100vh - 32px - 44px - 56px)` }"
-      flex-height
-    />
-  </NSpace>
+  <SearchTablePageLayout>
+    <template #searchBox>
+      <NGrid x-gap="12" :cols="2">
+        <NGi>
+          <NButton type="primary">
+            <NIcon style="margin-right: 6px" size="18"><AddCircle /></NIcon>
+            新增
+          </NButton>
+        </NGi>
+        <NGi>
+          <NSpace justify="end">
+            <NButton type="primary">查询</NButton>
+            <NButton type="default">重置</NButton>
+          </NSpace>
+        </NGi>
+      </NGrid>
+    </template>
+
+    <template #contentBox>
+      <NDataTable
+        :bordered="false"
+        :single-line="false"
+        :columns="columns"
+        :data="data"
+        :pagination="pagination"
+        :style="{ height: `100%` }"
+        flex-height
+      />
+    </template>
+  </SearchTablePageLayout>
 </template>
