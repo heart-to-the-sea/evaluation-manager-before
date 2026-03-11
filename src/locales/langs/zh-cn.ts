@@ -223,7 +223,8 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     home: '首页',
-    "evaluation-manager": "考核管理"
+    'evaluation-manager': '考核管理',
+    'user-manager': '员工管理'
   },
   page: {
     login: {

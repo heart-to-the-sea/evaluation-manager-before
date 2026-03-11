@@ -83,5 +83,14 @@ export const generatedRoutes: GeneratedRoute[] = [
       constant: true,
       hideInMenu: true
     }
+  },
+  {
+    name: 'user-manager',
+    path: '/user-manager',
+    component: 'layout.base$view.user-manager',
+    meta: {
+      title: 'user-manager',
+      i18nKey: 'route.user-manager'
+    }
   }
 ];
