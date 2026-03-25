@@ -40,35 +40,6 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
-    name: 'evaluation-manager',
-    path: '/evaluation-manager',
-    component: 'layout.base',
-    meta: {
-      title: 'evaluation-manager',
-      i18nKey: 'route.evaluation-manager'
-    },
-    children: [
-      {
-        name: 'evaluation-manager_evaluation-accessment',
-        path: '/evaluation-manager/evaluation-accessment',
-        component: 'view.evaluation-manager_evaluation-accessment',
-        meta: {
-          title: 'evaluation-manager_evaluation-accessment',
-          i18nKey: 'route.evaluation-manager_evaluation-accessment'
-        }
-      },
-      {
-        name: 'evaluation-manager_evaluation-template',
-        path: '/evaluation-manager/evaluation-template',
-        component: 'view.evaluation-manager_evaluation-template',
-        meta: {
-          title: 'evaluation-manager_evaluation-template',
-          i18nKey: 'route.evaluation-manager_evaluation-template'
-        }
-      }
-    ]
-  },
-  {
     name: 'home',
     path: '/home',
     component: 'layout.base$view.home',
@@ -121,16 +92,65 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'system-manager_dict-manager',
           i18nKey: 'route.system-manager_dict-manager'
         }
+      },
+      {
+        name: 'system-manager_menu',
+        path: '/system-manager/menu',
+        meta: {
+          title: 'system-manager_menu',
+          i18nKey: 'route.system-manager_menu'
+        },
+        children: [
+          {
+            name: 'system-manager_menu_edit',
+            path: '/system-manager/menu/edit/:id',
+            component: 'view.system-manager_menu_edit',
+            meta: {
+              title: 'system-manager_menu_edit',
+              i18nKey: 'route.system-manager_menu_edit'
+            }
+          },
+          {
+            name: 'system-manager_menu_index',
+            path: '/system-manager/menu/index',
+            component: 'view.system-manager_menu_index',
+            meta: {
+              title: 'system-manager_menu_index',
+              i18nKey: 'route.system-manager_menu_index'
+            }
+          }
+        ]
       }
     ]
   },
   {
     name: 'user-manager',
     path: '/user-manager',
-    component: 'layout.base$view.user-manager',
+    component: 'layout.base',
     meta: {
       title: 'user-manager',
       i18nKey: 'route.user-manager'
-    }
+    },
+    children: [
+      {
+        name: 'user-manager_index',
+        path: '/user-manager/index',
+        component: 'view.user-manager_index',
+        meta: {
+          title: '员工管理',
+          i18nKey: 'route.user-manager_index'
+        }
+      },
+      {
+        name: 'user-manager_info',
+        path: '/user-manager/info/:id',
+        component: 'view.user-manager_info',
+        meta: {
+          title: 'user-manager_info',
+          hideInMenu: true,
+          i18nKey: 'route.user-manager_info'
+        }
+      }
+    ]
   }
 ];

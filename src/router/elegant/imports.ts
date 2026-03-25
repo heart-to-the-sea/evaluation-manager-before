@@ -20,9 +20,10 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   500: () => import("@/views/_builtin/500/index.vue"),
   "iframe-page": () => import("@/views/_builtin/iframe-page/[url].vue"),
   login: () => import("@/views/_builtin/login/index.vue"),
-  "evaluation-manager_evaluation-accessment": () => import("@/views/evaluation-manager/evaluation-accessment/index.vue"),
-  "evaluation-manager_evaluation-template": () => import("@/views/evaluation-manager/evaluation-template/index.vue"),
   home: () => import("@/views/home/index.vue"),
   "system-manager_dict-manager": () => import("@/views/system-manager/dict-manager/index.vue"),
-  "user-manager": () => import("@/views/user-manager/index.vue"),
+  "system-manager_menu_edit": () => import("@/views/system-manager/menu/edit/[id].vue"),
+  "system-manager_menu_index": () => import("@/views/system-manager/menu/index/index.vue"),
+  "user-manager_index": () => import("@/views/user-manager/index/index.vue"),
+  "user-manager_info": () => import("@/views/user-manager/info/[id].vue"),
 };

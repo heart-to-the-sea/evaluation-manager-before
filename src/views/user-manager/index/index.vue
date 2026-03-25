@@ -1,9 +1,11 @@
 <script setup lang="tsx">
-import { h, ref } from 'vue';
+import { h, reactive, ref } from 'vue';
 import { NButton, NDatePicker, NGrid, NGridItem, NIcon, NInput, NPopconfirm, NSelect, NSpace, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
-import { AddCircle } from '@vicons/ionicons5';
+import { AddCircle, CloudDownload, CloudUploadSharp } from '@vicons/ionicons5';
+import { useRouterPush } from '@/hooks/common/router';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import AppendDialog from './components/AppendDialog.vue';
 
 interface RowData {
   key: number;
@@ -16,6 +18,10 @@ interface RowData {
   createTime: string;
   updateTime: string;
 }
+
+const { routerPushByKey } = useRouterPush();
+
+const showAppendDialog = ref(false);
 
 const searchParams = ref({
   account: '',
@@ -132,7 +138,18 @@ const columns = ref<DataTableColumns<RowData>>([
   }
 ]);
 
-const pagination = { pageSize: 100 };
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  pageSizes: [20, 50, 100, 200, 500, 1000],
+  showSizePicker: true,
+  onChange: (page: number) => {
+    pagination.page = page;
+  },
+  onUpdatePageSize: (pageSize: number) => {
+    pagination.pageSize = pageSize;
+  }
+});
 
 function handleSearch() {
   console.log('搜索参数:', searchParams.value);
@@ -146,9 +163,12 @@ function handleReset() {
     dateRange: null
   };
 }
-
+function handleAppend() {
+  showAppendDialog.value = true;
+  console.log('==>');
+}
 function handleDetail(row: RowData) {
-  console.log('查看详情:', row);
+  routerPushByKey('user-manager_info', { params: { id: '123' } });
 }
 
 function handleEdit(row: RowData) {
@@ -164,17 +184,7 @@ function handleDelete(row: RowData) {
   <SearchTablePageLayout>
     <template #searchBox>
       <NGrid :cols="12">
-        <NGi span="2">
-          <NButton type="primary" style="margin-right: 6px">
-            <NIcon style="margin-right: 6px" size="18"><AddCircle /></NIcon>
-            新增
-          </NButton>
-          <NButton type="error">
-            <NIcon style="margin-right: 6px" size="18"><AddCircle /></NIcon>
-            批量删除
-          </NButton>
-        </NGi>
-        <NGi span="10">
+        <NGi span="12">
           <NSpace justify="end">
             <NInput
               v-model:value="searchParams.account"
@@ -204,17 +214,32 @@ function handleDelete(row: RowData) {
         </NGi>
       </NGrid>
     </template>
+    <template #h-btns>
+      <NButton type="primary" style="margin-right: 6px" @click="handleAppend">
+        <NIcon style="margin-right: 6px" size="18">
+          <AddCircle />
+        </NIcon>
+        新增
+      </NButton>
+      <NButton type="warning" style="margin-right: 6px">
+        <NIcon style="margin: 0 6px" size="18" :component="CloudDownload" />
+        导出
+      </NButton>
 
-    <template #contentBox>
-      <NDataTable
-        :bordered="false"
-        :single-line="false"
-        :columns="columns"
-        :data="data"
-        :pagination="pagination"
-        :style="{ height: `100%` }"
-        flex-height
-      />
+      <NButton type="success" style="margin-right: 6px">
+        <NIcon style="margin: 0 6px" size="18" :component="CloudUploadSharp" />
+        导入
+      </NButton>
     </template>
+    <NDataTable
+      :bordered="false"
+      :single-line="false"
+      :columns="columns"
+      :data="data"
+      :pagination="pagination"
+      :style="{ height: `100%` }"
+      flex-height
+    />
+    <AppendDialog :show="showAppendDialog" @close="showAppendDialog = false" />
   </SearchTablePageLayout>
 </template>

@@ -20,15 +20,17 @@ declare module "@elegant-router/types" {
     "403": "/403";
     "404": "/404";
     "500": "/500";
-    "evaluation-manager": "/evaluation-manager";
-    "evaluation-manager_evaluation-accessment": "/evaluation-manager/evaluation-accessment";
-    "evaluation-manager_evaluation-template": "/evaluation-manager/evaluation-template";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
     "system-manager": "/system-manager";
     "system-manager_dict-manager": "/system-manager/dict-manager";
+    "system-manager_menu": "/system-manager/menu";
+    "system-manager_menu_edit": "/system-manager/menu/edit/:id";
+    "system-manager_menu_index": "/system-manager/menu/index";
     "user-manager": "/user-manager";
+    "user-manager_index": "/user-manager/index";
+    "user-manager_info": "/user-manager/info/:id";
   };
 
   /**
@@ -63,7 +65,6 @@ declare module "@elegant-router/types" {
     | "403"
     | "404"
     | "500"
-    | "evaluation-manager"
     | "home"
     | "iframe-page"
     | "login"
@@ -90,11 +91,12 @@ declare module "@elegant-router/types" {
     | "500"
     | "iframe-page"
     | "login"
-    | "evaluation-manager_evaluation-accessment"
-    | "evaluation-manager_evaluation-template"
     | "home"
     | "system-manager_dict-manager"
-    | "user-manager"
+    | "system-manager_menu_edit"
+    | "system-manager_menu_index"
+    | "user-manager_index"
+    | "user-manager_info"
   >;
 
   /**

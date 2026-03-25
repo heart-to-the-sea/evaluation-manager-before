@@ -184,6 +184,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     if (authRouteMode.value === 'static') {
       initStaticAuthRoute();
     } else {
+      console.log('初始化动态路由');
       await initDynamicAuthRoute();
     }
 
@@ -209,8 +210,9 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
 
   /** Init dynamic auth route */
   async function initDynamicAuthRoute() {
+    console.log('获取动态路由');
     const { data, error } = await fetchGetUserRoutes();
-
+    console.log('initDynamicAuthRoute', 'data', data);
     if (!error) {
       const { routes, home } = data;
 

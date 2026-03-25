@@ -19,7 +19,7 @@ const themeStore = useThemeStore();
 const routeStore = useRouteStore();
 const { routerPushByKeyWithMetaQuery } = useRouterPush();
 const { selectedKey } = useMenu();
-
+console.log('routeStore', routeStore.menus);
 const inverted = computed(() => !themeStore.darkMode && themeStore.sider.inverted);
 
 const expandedKeys = ref<string[]>([]);
