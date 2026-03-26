@@ -1,4 +1,4 @@
-First of all, thank you for your contribution! 😄
+<!-- First of all, thank you for your contribution! 😄
 
 New feature please send pull request to feature branch, and rest to main branch. Pull request will be merged after one of collaborators approve. Please makes sure that these form are filled before submitting your pull request, thank you!
 
@@ -48,4 +48,4 @@ New feature please send pull request to feature branch, and rest to main branch.
 
 ### Additional Plan? (Optional if not new feature)
 
-> If this PR related with other PR or following info. You can type here.
+> If this PR related with other PR or following info. You can type here. -->

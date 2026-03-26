@@ -1,28 +1,15 @@
 <script setup lang="tsx">
-import { ref } from 'vue';
-import { NButton, NGrid, NIcon, NInput, NPopconfirm, NSpace, NTag } from 'naive-ui';
+import { onMounted, reactive, ref } from 'vue';
+import { NButton, NDataTable, NGrid, NGridItem, NIcon, NInput, NPopconfirm, NSpace, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
-import { AddCircle } from '@vicons/ionicons5';
+import { AddCircle, RefreshOutline, SearchOutline } from '@vicons/ionicons5';
+import { type DictValuesVo, type DictVo, fetchDictDelete, fetchDictList, fetchDictValuesDelete } from '@/service/api';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import AppendDialog from './components/AppendDialog.vue';
+import DictValuesModal from './components/DictValuesModal.vue';
 
-interface DictData {
-  id: number;
-  label: string;
-  value: string;
-  sort: number;
-  status: boolean;
-}
-
-interface RowData {
+interface RowData extends DictVo {
   key: number;
-  id: number;
-  name: string;
-  code: string;
-  description: string;
-  status: boolean;
-  createTime: string;
-  updateTime: string;
-  children?: DictData[];
 }
 
 const searchParams = ref({
@@ -30,172 +17,216 @@ const searchParams = ref({
   code: ''
 });
 
-const data = ref<RowData[]>(
-  Array.from({ length: 10 }).map((_, index) => ({
-    key: index,
-    id: index + 1,
-    name: `字典${index + 1}`,
-    code: `dict_${index + 1}`,
-    description: `这是字典${index + 1}的描述`,
-    status: index % 2 === 0,
-    createTime: '2024-01-01 10:00:00',
-    updateTime: '2024-01-01 10:00:00',
-    children: Array.from({ length: 3 }).map(() => ({
-      id: 1,
-      label: `选项${1}`,
-      value: `value_${1}`,
-      sort: 1,
-      status: true
-    }))
-  }))
-);
+const data = ref<RowData[]>([]);
+const loading = ref(false);
 
-const columns = ref<DataTableColumns<RowData>>([
-  {
-    type: 'selection',
-    fixed: 'left',
-    width: '50px'
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  pageSizes: [20, 50, 100, 200, 500, 1000],
+  showSizePicker: true,
+  onChange: (page: number) => {
+    pagination.page = page;
   },
+  onUpdatePageSize: (pageSize: number) => {
+    pagination.pageSize = pageSize;
+  }
+});
+
+const dictValueColumns = ref<DataTableColumns<any>>([
   {
-    title: 'ID',
-    key: 'id',
-    width: 80,
-    fixed: 'left'
+    title: '#',
+    key: 'key',
+    width: 50
   },
-  {
-    title: '字典名称',
-    key: 'name',
-    width: 150,
-    fixed: 'left'
-  },
-  {
-    title: '字典编码',
-    key: 'code',
-    width: 150,
-    fixed: 'left'
-  },
-  {
-    title: '描述',
-    key: 'description',
-    width: 200
-  },
-  {
-    title: '状态',
-    key: 'status',
-    width: 100,
-    render(row: RowData) {
-      const tagType = row.status ? 'success' : 'error';
-      return (
-        <NTag type={tagType} bordered={false}>
-          {row.status ? '启用' : '禁用'}
-        </NTag>
-      );
-    }
-  },
-  {
-    title: '创建时间',
-    key: 'createTime',
-    width: 180
-  },
-  {
-    title: '更新时间',
-    key: 'updateTime',
-    width: 180
-  },
+  { title: '字典名称', key: 'name', width: 250, fixed: 'left' },
+  { title: '字典编码', key: 'code', width: 250, fixed: 'left' },
   {
     title: '操作',
     key: 'actions',
-    width: 120,
+    width: 160,
     align: 'center',
     fixed: 'right',
-    render(row: RowData) {
-      return (
-        <NSpace justify="center" size="small">
-          <NButton type="primary" quaternary size="small" onClick={() => handleEdit(row)}>
-            编辑
-          </NButton>
-          <NPopconfirm onPositiveClick={() => handleDelete(row)}>
-            {{
-              trigger: () => (
-                <NButton type="error" quaternary size="small">
-                  删除
-                </NButton>
-              ),
-              default: () => '确定要删除该字典吗？'
-            }}
-          </NPopconfirm>
-        </NSpace>
-      );
-    }
+    render: (row: RowData) => (
+      <NSpace justify="center" size="small">
+        <NButton type="primary" quaternary size="small" onClick={() => handleEdit(row)}>
+          编辑
+        </NButton>
+        <NPopconfirm onPositiveClick={() => handleDelete(row)}>
+          {{
+            trigger: () => (
+              <NButton type="error" quaternary size="small">
+                删除
+              </NButton>
+            ),
+            default: () => '确定要删除该字典吗？'
+          }}
+        </NPopconfirm>
+      </NSpace>
+    )
   }
 ]);
 
-const pagination = { pageSize: 100 };
+const columns = ref<DataTableColumns<RowData>>([
+  {
+    type: 'expand',
+    width: '50px',
+    renderExpand: () => {
+      return (
+        <div style="display:flex;justify-content:  center">
+          <NDataTable columns={dictValueColumns.value} style={'width: 1500px'} data={data.value} flex-height />
+        </div>
+      );
+    }
+  },
+  // {
+  //   type: 'selection',
+  //   fixed: 'left',
+  //   width: '50px'
+  // },
+  {
+    title: '#',
+    key: 'key',
+    width: 50,
+    render: (_: any, index: number) => `${index + 1}`
+  },
+  { title: '字典名称', key: 'name', width: 250, fixed: 'left' },
+  { title: '字典编码', key: 'code', width: 250, fixed: 'left' },
+  {
+    title: '状态',
+    key: 'status',
+    width: 150,
+    align: 'center',
+    render: (row: RowData) => (
+      <NTag type={row.status === 1 ? 'success' : 'error'} bordered={false}>
+        {row.statusLabel || (row.status === 1 ? '启用' : '禁用')}
+      </NTag>
+    )
+  },
+  { title: '创建时间', key: 'createdAt', width: 180 },
+  { title: '更新时间', key: 'updatedAt', width: 180 },
+  { title: '描述', key: 'description', width: '' },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 160,
+    align: 'center',
+    fixed: 'right',
+    render: (row: RowData) => (
+      <NSpace justify="center" size="small">
+        <NButton type="primary" quaternary size="small" onClick={() => handleEdit(row)}>
+          编辑
+        </NButton>
+        <NPopconfirm onPositiveClick={() => handleDelete(row)}>
+          {{
+            trigger: () => (
+              <NButton type="error" quaternary size="small">
+                删除
+              </NButton>
+            ),
+            default: () => '确定要删除该字典吗？'
+          }}
+        </NPopconfirm>
+      </NSpace>
+    )
+  }
+]);
 
-const showModal = ref(false);
-const modalType = ref<'add' | 'edit'>('add');
-const formData = ref<any>({
-  name: '',
-  code: '',
-  description: '',
-  status: true,
-  items: [{ label: '', value: '', sort: 1, status: true }]
-});
+const showAppendDialog = ref(false);
+const editData = ref<DictVo | null>(null);
+const showDictValuesModal = ref(false);
+const editingDictValues = ref<DictValuesVo | null>(null);
+const currentDictKey = ref<string>('');
+
+async function loadData() {
+  loading.value = true;
+  try {
+    const { data: res } = await fetchDictList({
+      pageNum: pagination.page,
+      pageSize: pagination.pageSize,
+      name: searchParams.value.name || undefined,
+      code: searchParams.value.code || undefined
+    });
+    data.value = (res?.records || []).map((item, index) => ({
+      ...item,
+      key: item.id || index
+    })) as RowData[];
+  } catch (error) {
+    console.error('加载字典列表失败:', error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function handleEditDictValues(row: DictValuesVo) {
+  editingDictValues.value = row;
+  currentDictKey.value = row.dictKey || '';
+  showDictValuesModal.value = true;
+}
+
+async function handleDeleteDictValues(row: DictValuesVo) {
+  if (!row.id) return;
+  try {
+    await fetchDictValuesDelete(row.id);
+    window.$message?.success('删除成功');
+    loadData();
+  } catch (error) {
+    console.error('删除失败:', error);
+  }
+}
 
 function handleSearch() {
-  console.log('搜索参数:', searchParams.value);
+  pagination.page = 1;
+  loadData();
 }
 
 function handleReset() {
   searchParams.value = { name: '', code: '' };
+  pagination.page = 1;
+  loadData();
 }
 
 function handleAdd() {
-  modalType.value = 'add';
-  formData.value = {
-    name: '',
-    code: '',
-    description: '',
-    status: true,
-    items: [{ label: '', value: '', sort: 1, status: true }]
-  };
-  showModal.value = true;
+  editData.value = null;
+  showAppendDialog.value = true;
 }
 
 function handleEdit(row: RowData) {
-  modalType.value = 'edit';
-  formData.value = {
-    name: row.name,
-    code: row.code,
-    description: row.description,
-    status: row.status,
-    items:
-      row.children?.map(item => ({ label: item.label, value: item.value, sort: item.sort, status: item.status })) || []
-  };
-  showModal.value = true;
+  editData.value = row;
+  showAppendDialog.value = true;
 }
 
-function handleDelete(row: RowData) {
-  console.log('删除:', row);
+async function handleDelete(row: RowData) {
+  if (!row.id) return;
+  try {
+    await fetchDictDelete(row.id);
+    window.$message?.success('删除成功');
+    loadData();
+  } catch (error) {
+    console.error('删除失败:', error);
+  }
 }
 
-function handleSubmit(_: any) {
-  console.log('提交数据:');
+function handleAppendClose() {
+  showAppendDialog.value = false;
+  loadData();
 }
+
+function handleDictValuesModalClose() {
+  showDictValuesModal.value = false;
+  editingDictValues.value = null;
+}
+
+onMounted(() => {
+  loadData();
+});
 </script>
 
 <template>
   <SearchTablePageLayout>
     <template #searchBox>
       <NGrid :cols="12">
-        <NGi span="2">
-          <NButton type="primary" @click="handleAdd">
-            <NIcon style="margin-right: 6px" size="18"><AddCircle /></NIcon>
-            新增
-          </NButton>
-          <NButton type="error">批量删除</NButton>
-        </NGi>
-        <NGi span="10">
+        <NGi span="12">
           <NSpace justify="end">
             <NInput
               v-model:value="searchParams.name"
@@ -217,18 +248,29 @@ function handleSubmit(_: any) {
         </NGi>
       </NGrid>
     </template>
-
-    <template #contentBox>
-      <NDataTable
-        :bordered="false"
-        :single-line="false"
-        :columns="columns"
-        :data="data"
-        :pagination="pagination"
-        :style="{ height: `100%` }"
-        flex-height
-        :row-key="(row: RowData) => row.key"
-      />
+    <template #h-btns>
+      <NButton type="primary" @click="handleAdd">
+        <NIcon style="margin-right: 6px" size="18"><AddCircle /></NIcon>
+        新增
+      </NButton>
     </template>
+    <NDataTable
+      :bordered="false"
+      :single-line="false"
+      :columns="columns"
+      :data="data"
+      :loading="loading"
+      :pagination="pagination"
+      :style="{ height: `100%` }"
+      flex-height
+      :row-key="(row: RowData) => row.key"
+    />
+    <AppendDialog :show="showAppendDialog" :data="editData" @close="handleAppendClose" />
+    <DictValuesModal
+      :show="showDictValuesModal"
+      :dict-key="currentDictKey"
+      :data="editingDictValues"
+      @close="handleDictValuesModalClose"
+    />
   </SearchTablePageLayout>
 </template>

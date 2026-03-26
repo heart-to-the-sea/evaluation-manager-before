@@ -6,6 +6,17 @@ interface Props {
   show: boolean;
 }
 const formRef = ref<FormInst | null>(null);
+const uploadFileRef = ref<HTMLInputElement | null>(null);
+const formData = ref({
+  account: '',
+  image: '',
+  username: '',
+  password: '',
+  deptId: '',
+  jobStatus: '1',
+  accountStatus: '1',
+  workState: '1'
+});
 const props = defineProps<Props>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -31,6 +42,10 @@ function handleClose() {
 function handleSubmit() {
   formRef.value?.validate();
 }
+function handleFileInputChange(e: Event) {
+  const target = e.target as HTMLInputElement;
+  console.log(target.files);
+}
 </script>
 
 <template>
@@ -39,32 +54,28 @@ function handleSubmit() {
       <template #header-extra>
         <NButton type="primary" @click="handleClose">关闭</NButton>
       </template>
-      <NForm ref="formRef" label-placement="left" :rules="rules" :label-width="80">
+      <NForm ref="formRef" label-placement="left" :model="formData" :rules="rules" :label-width="80">
         <NGrid x-gap="26" :cols="20">
           <NGi span="15">
             <NFormItem label="账户" path="account">
-              <NInput placeholder="请输入用户名"></NInput>
+              <NInput v-model:value.trim="formData.account" placeholder="请输入用户名"></NInput>
             </NFormItem>
 
             <NFormItem label="用户名">
-              <NInput placeholder="请输入用户名"></NInput>
+              <NInput v-model:value.trim="formData.image" placeholder="请输入用户名"></NInput>
             </NFormItem>
 
             <NFormItem label="密码">
-              <NInput placeholder="请输入用户名"></NInput>
+              <NInput v-model:value.trim="formData.password" placeholder="请输入用户名"></NInput>
             </NFormItem>
           </NGi>
           <NGi span="5">
             <NFlex justify="right" align="center">
               <NFormItem label-width="0" path="image">
-                <div class="img-box">
+                <div class="img-box" @click="uploadFileRef?.click()">
                   <NIcon size="80" color="#afafaf" :component="AddCircle"></NIcon>
                 </div>
-                <!--
- <template #feedback="aaa">
-                  {{ aaa }}123
-                </template>
--->
+                <input ref="uploadFileRef" hidden type="file" @change="handleFileInputChange" />
               </NFormItem>
             </NFlex>
           </NGi>
@@ -76,6 +87,7 @@ function handleSubmit() {
 
         <NFormItem label="岗位状态">
           <NSelect
+            v-model:value="formData.jobStatus"
             placeholder="请选择状岗位态"
             :options="[
               { label: '在职', value: '1' },
@@ -85,19 +97,21 @@ function handleSubmit() {
         </NFormItem>
         <NFormItem label="工作状态">
           <NSelect
+            v-model:value="formData.accountStatus"
             placeholder="请选择工作状态"
             :options="[
-              { label: '请假', value: '3' },
-              { label: '工作', value: '4' }
+              { label: '请假', value: '1' },
+              { label: '工作', value: '2' }
             ]"
           />
         </NFormItem>
         <NFormItem label="账户状态">
           <NSelect
+            v-model:value="formData.accountStatus"
             placeholder="请选择状态"
             :options="[
-              { label: '启用', value: '13' },
-              { label: '禁用', value: '22' }
+              { label: '启用', value: '1' },
+              { label: '禁用', value: '2' }
             ]"
           />
         </NFormItem>

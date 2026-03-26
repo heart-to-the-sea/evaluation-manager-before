@@ -54,8 +54,8 @@ const columns = ref<DataTableColumns<RowData>>([
     width: '50px'
   },
   {
-    title: 'ID',
-    key: 'id',
+    title: '序号',
+    key: 'index',
     width: 80,
     fixed: 'left'
   },
