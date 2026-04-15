@@ -1,0 +1,32 @@
+{
+  "name": "evaluation-manager-before-nuxtjs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify/vue": "^5.0.0",
+    "@pinia/nuxt": "^0.10.1",
+    "@unocss/nuxt": "^66.5.6",
+    "@vicons/ionicons5": "^0.13.0",
+    "naive-ui": "^2.43.1",
+    "nuxt": "^3.17.0",
+    "pinia": "^3.0.4",
+    "sass": "^1.94.0",
+    "unocss": "^66.5.6",
+    "vue": "^3.5.24"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@unocss/preset-icons": "^66.5.6",
+    "@unocss/preset-uno": "^66.5.6",
+    "@unocss/transformer-directives": "^66.5.6",
+    "@unocss/transformer-variant-group": "^66.5.6",
+    "typescript": "^5.9.3"
+  }
+}
