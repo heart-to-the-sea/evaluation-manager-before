@@ -27,18 +27,6 @@ function findRouteByPath(currentPath: string, routes: RouteItem[]): RouteItem | 
   return null;
 }
 
-function resolveLayout(component?: string | null) {
-  if (!component) {
-    return 'default';
-  }
-
-  if (component === 'layout.blank' || component.startsWith('layout.blank$')) {
-    return 'blank';
-  }
-
-  return 'default';
-}
-
 function mapRouteToMenu(route: RouteItem): AppMenuOption | null {
   const children = sortRoutes(route.children || [])
     .map(mapRouteToMenu)
@@ -120,7 +108,7 @@ export const useMenuStore = defineStore('menu', {
       }
 
       Object.assign(route.meta, matchedRoute.meta);
-      route.meta.layout = resolveLayout(matchedRoute.component);
+      route.meta.keepalive = Boolean(matchedRoute.meta.keepAlive);
       return matchedRoute;
     }
   }

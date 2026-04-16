@@ -1,34 +1,38 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { NCard, NIcon, useThemeVars } from 'naive-ui';
-import { SearchCircle } from '@vicons/ionicons5';
+import { RefreshCircle, SearchCircle } from '@vicons/ionicons5';
 
 const themeVars = useThemeVars();
 const showSearch = ref(false);
-const route = useRoute();
 
-const isFullscreenLayout = computed(() => route.meta.layout === 'blank');
+const emit = defineEmits<{
+  refresh: [];
+}>();
 </script>
 
 <template>
-  <div class="page-layout" :class="{ 'page-layout--fullscreen': isFullscreenLayout }">
+  <div class="page-layout">
     <NCard v-if="showSearch" :bordered="false" class="card-wrapper search-card">
       <div class="search-box-wrapper">
         <slot name="searchBox">123</slot>
       </div>
     </NCard>
+
     <NCard class="card-wrapper content-card" :bordered="false">
       <div class="handler">
         <div class="handler-actions">
           <slot name="h-btns"></slot>
         </div>
+
         <slot name="btns">
           <div class="handler-tools">
-            <NIcon size="36" :component="SearchCircle" style="cursor: pointer" :color="themeVars.primaryColor"
-              @click="showSearch = !showSearch"></NIcon>
+            <NIcon size="36" :component="RefreshCircle" class="tool-icon" :color="themeVars.primaryColor" @click="emit('refresh')" />
+            <NIcon size="36" :component="SearchCircle" style="cursor: pointer" :color="themeVars.primaryColor" @click="showSearch = !showSearch" />
           </div>
         </slot>
       </div>
+
       <div class="content-box">
         <slot>contentBox</slot>
       </div>
@@ -39,15 +43,9 @@ const isFullscreenLayout = computed(() => route.meta.layout === 'blank');
 <style lang="scss" scoped>
 .page-layout {
   display: flex;
-  min-height: 0;
-  flex: 1;
-  height: 100%;
+  height: calc(100vh - 100px);
   flex-direction: column;
   padding: 16px;
-}
-
-.page-layout--fullscreen {
-  height: 100vh;
 }
 
 .search-card {
@@ -56,28 +54,16 @@ const isFullscreenLayout = computed(() => route.meta.layout === 'blank');
 }
 
 .content-card {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-}
-
-.content-card :deep(.n-card__content) {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
+  height: 100%;
 }
 
 .handler {
-  width: 100%;
-  min-height: 34px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 34px;
   margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgb(var(--border-color));
 }
 
 .handler-actions,
@@ -91,6 +77,16 @@ const isFullscreenLayout = computed(() => route.meta.layout === 'blank');
   }
 }
 
+.handler-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tool-icon {
+  cursor: pointer;
+}
+
 .search-box-wrapper {
   :deep(.n-input),
   :deep(.n-base-selection),
@@ -99,24 +95,7 @@ const isFullscreenLayout = computed(() => route.meta.layout === 'blank');
   }
 }
 
-.search-box-wrapper {
-  padding: 2px 0;
-}
-
 .content-box {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  overflow: hidden;
-}
-
-.content-box :deep(.table-page-fill) {
-  min-height: 0;
-  flex: 1;
-}
-
-.content-box :deep(.n-data-table) {
-  min-height: 0;
-  flex: 1;
+  height: calc(100% - 46px);
 }
 </style>

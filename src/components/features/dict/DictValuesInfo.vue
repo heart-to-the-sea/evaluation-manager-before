@@ -27,12 +27,7 @@ const snapshotMap = new Map<string, RowData>();
 const editedRows = computed(() => dataList.value.filter(item => item.isNew || item.isEditing));
 
 const columns = ref<DataTableColumns<RowData>>([
-  {
-    title: '#',
-    key: 'index',
-    width: 60,
-    render: (_, index) => String(index + 1)
-  },
+  { title: '#', key: 'index', width: 60, render: (_, index) => String(index + 1) },
   {
     title: '标签',
     key: 'label',
@@ -74,9 +69,7 @@ const columns = ref<DataTableColumns<RowData>>([
       row.isNew || row.isEditing ? (
         <NSwitch value={row.status} checked-value="1" unchecked-value="0" onUpdateValue={value => (row.status = value)} />
       ) : (
-        <NTag type={row.status === '1' ? 'success' : 'error'} bordered={false}>
-          {row.status === '1' ? '启用' : '禁用'}
-        </NTag>
+        <NTag type={row.status === '1' ? 'success' : 'error'} bordered={false}>{row.status === '1' ? '启用' : '禁用'}</NTag>
       )
   },
   {
@@ -84,35 +77,26 @@ const columns = ref<DataTableColumns<RowData>>([
     key: 'actions',
     width: 160,
     align: 'center',
+    fixed: 'right',
     render: row => (
-      <NSpace justify="center" size="small">
+      <div class="em-table-actions">
         {row.isNew || row.isEditing ? (
           <>
-            <NButton size="small" quaternary type="primary" onClick={() => handleSave(row)}>
-              保存
-            </NButton>
-            <NButton size="small" quaternary onClick={() => handleCancel(row)}>
-              取消
-            </NButton>
+            <NButton size="small" quaternary type="primary" onClick={() => handleSave(row)}>保存</NButton>
+            <NButton size="small" quaternary onClick={() => handleCancel(row)}>取消</NButton>
           </>
         ) : (
           <>
-            <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>
-              编辑
-            </NButton>
+            <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>编辑</NButton>
             <NPopconfirm onPositiveClick={() => handleDelete(row)}>
               {{
-                trigger: () => (
-                  <NButton size="small" quaternary type="error">
-                    删除
-                  </NButton>
-                ),
+                trigger: () => <NButton size="small" quaternary type="error">删除</NButton>,
                 default: () => '确认删除这条字典值吗？'
               }}
             </NPopconfirm>
           </>
         )}
-      </NSpace>
+      </div>
     )
   }
 ]);
@@ -129,13 +113,9 @@ watch(
 
 async function loadData() {
   loading.value = true;
-
   try {
     const { data } = await fetchDictValuesListByCode(props.dictCode);
-    dataList.value = (data || []).map((item, index) => ({
-      ...item,
-      key: item.id || `${index}`
-    }));
+    dataList.value = (data || []).map((item, index) => ({ ...item, key: item.id || `${index}` }));
     snapshotMap.clear();
   } finally {
     loading.value = false;
@@ -171,7 +151,7 @@ function handleAdd() {
     label: '',
     value: '',
     sort: dataList.value.length + 1,
-    status: '1',
+    status: 1,
     isNew: true
   });
 }
@@ -183,7 +163,6 @@ async function handleSave(row: RowData) {
   }
 
   submitting.value = true;
-
   try {
     const payload: DictValuesVo = {
       id: row.isNew ? undefined : row.id,
@@ -196,10 +175,12 @@ async function handleSave(row: RowData) {
     };
 
     if (row.isNew) {
-      await fetchDictValuesAdd(payload);
+      const { error } = await fetchDictValuesAdd(payload);
+      if (error) return;
       window.$message?.success('字典值新增成功');
     } else {
-      await fetchDictValuesUpdate(payload);
+      const { error } = await fetchDictValuesUpdate(payload);
+      if (error) return;
       window.$message?.success('字典值更新成功');
     }
 
@@ -214,7 +195,11 @@ async function handleDelete(row: RowData) {
     return;
   }
 
-  await fetchDictValuesDelete(row.id);
+  const { error } = await fetchDictValuesDelete(row.id);
+  if (error) {
+    return;
+  }
+
   window.$message?.success('字典值删除成功');
   await loadData();
 }
@@ -230,9 +215,8 @@ async function handleBatchSave() {
   }
 
   submitting.value = true;
-
   try {
-    await fetchDictValuesBatchSave(
+    const { error } = await fetchDictValuesBatchSave(
       editedRows.value.map(item => ({
         id: item.isNew ? undefined : item.id,
         dictId: props.dictId,
@@ -244,6 +228,10 @@ async function handleBatchSave() {
       }))
     );
 
+    if (error) {
+      return;
+    }
+
     window.$message?.success('批量保存成功');
     await loadData();
   } finally {
@@ -253,14 +241,7 @@ async function handleBatchSave() {
 </script>
 
 <template>
-  <NModal
-    :show="show"
-    preset="card"
-    title="字典值详情"
-    :style="{ width: '980px' }"
-    :mask-closable="false"
-    @update:show="value => !value && emit('close')"
-  >
+  <NModal :show="show" preset="card" title="字典值详情" :style="{ width: '980px' }" :mask-closable="false" @update:show="value => !value && emit('close')">
     <NSpace vertical>
       <NSpace justify="space-between">
         <div class="text-14px text-#666">字典编码：{{ dictCode }}</div>

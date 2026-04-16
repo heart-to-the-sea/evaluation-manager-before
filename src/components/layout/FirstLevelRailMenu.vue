@@ -118,9 +118,9 @@ const emit = defineEmits<{
 }
 
 .rail-menu__item--active {
-  background: rgb(var(--em-primary-color-rgb) / 14%);
-  color: var(--em-primary-color);
-  box-shadow: inset 0 0 0 1px rgb(var(--em-primary-color-rgb) / 28%);
+  background: var(--em-primary-color);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
 }
 
 .rail-menu--inverted .rail-menu__item:hover {
@@ -128,9 +128,9 @@ const emit = defineEmits<{
 }
 
 .rail-menu--inverted .rail-menu__item--active {
-  background: rgb(var(--em-primary-color-rgb) / 22%);
+  background: var(--em-primary-color);
   color: rgb(255 255 255 / 96%);
-  box-shadow: inset 0 0 0 1px rgb(var(--em-primary-color-rgb) / 34%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
 }
 
 .rail-menu__label {

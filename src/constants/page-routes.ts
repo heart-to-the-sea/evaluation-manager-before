@@ -26,13 +26,25 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.system-manager.menu.edit'
   },
   {
-    label: '用户管理',
+    label: '部门管理',
+    routeKey: 'system_manager_department_index',
+    routePath: '/system-manager/department',
+    component: 'view.system-manager.department.index'
+  },
+  {
+    label: '部门详情',
+    routeKey: 'system_manager_department_info_id',
+    routePath: '/system-manager/department/info/:id',
+    component: 'view.system-manager.department.info'
+  },
+  {
+    label: '人员管理',
     routeKey: 'user_manager_index',
     routePath: '/user-manager/index',
     component: 'view.user-manager.index'
   },
   {
-    label: '用户详情',
+    label: '人员详情',
     routeKey: 'user_manager_info_id',
     routePath: '/user-manager/info/:id',
     component: 'view.user-manager.info'

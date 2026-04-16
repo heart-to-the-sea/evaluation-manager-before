@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h } from 'vue';
+import { computed, h } from 'vue';
 import { NMenu } from 'naive-ui';
 import type { MenuOption } from 'naive-ui';
 import AppIcon from '@/components/common/AppIcon.vue';
@@ -32,6 +32,7 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const menuStore = useMenuStore();
+const themeStore = useThemeStore();
 
 function renderIcon(icon?: string) {
   return () => h(AppIcon, { icon, size: 18 });
@@ -70,6 +71,44 @@ function findCurrentRoute(currentPath: string, routes: RouteItem[]): RouteItem |
 
 const menuOptions = computed(() => (props.options || menuStore.menuOptions).map(mapMenuOption));
 
+const menuThemeOverrides = computed(() => {
+  const primaryColor = themeStore.themeColor;
+  const childActiveColor = props.inverted ? '#ffffff' : primaryColor;
+
+  return {
+    itemColorActive: primaryColor,
+    itemColorActiveHover: primaryColor,
+    itemColorActiveCollapsed: primaryColor,
+    itemTextColorActive: '#ffffff',
+    itemTextColorActiveHover: '#ffffff',
+    itemTextColorChildActive: childActiveColor,
+    itemTextColorChildActiveHover: childActiveColor,
+    itemIconColorActive: '#ffffff',
+    itemIconColorActiveHover: '#ffffff',
+    itemIconColorChildActive: childActiveColor,
+    itemIconColorChildActiveHover: childActiveColor,
+    arrowColorActive: '#ffffff',
+    arrowColorActiveHover: '#ffffff',
+    arrowColorChildActive: childActiveColor,
+    arrowColorChildActiveHover: childActiveColor,
+    itemColorActiveInverted: primaryColor,
+    itemColorActiveHoverInverted: primaryColor,
+    itemColorActiveCollapsedInverted: primaryColor,
+    itemTextColorActiveInverted: '#ffffff',
+    itemTextColorActiveHoverInverted: '#ffffff',
+    itemTextColorChildActiveInverted: '#ffffff',
+    itemTextColorChildActiveHoverInverted: '#ffffff',
+    itemIconColorActiveInverted: '#ffffff',
+    itemIconColorActiveHoverInverted: '#ffffff',
+    itemIconColorChildActiveInverted: '#ffffff',
+    itemIconColorChildActiveHoverInverted: '#ffffff',
+    arrowColorActiveInverted: '#ffffff',
+    arrowColorActiveHoverInverted: '#ffffff',
+    arrowColorChildActiveInverted: '#ffffff',
+    arrowColorChildActiveHoverInverted: '#ffffff'
+  };
+});
+
 const innerSelectedKey = computed(() => {
   if (props.selectedKey !== undefined) {
     return props.selectedKey;
@@ -99,6 +138,7 @@ const innerSelectedKey = computed(() => {
       :collapsed-width="collapsedWidth"
       :collapsed-icon-size="20"
       :inverted="inverted"
+      :theme-overrides="menuThemeOverrides"
       :options="menuOptions"
       @update:value="key => emit('select', String(key))"
     />

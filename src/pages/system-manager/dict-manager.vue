@@ -77,7 +77,7 @@ const columns = ref<DataTableColumns<RowData>>([
     align: 'center',
     fixed: 'right',
     render: row => (
-      <NSpace justify="center" size="small">
+      <div class="em-table-actions">
         <NButton size="small" quaternary type="primary" onClick={() => handleViewDictValues(row)}>
           字典值
         </NButton>
@@ -94,7 +94,7 @@ const columns = ref<DataTableColumns<RowData>>([
             default: () => '确认删除这条字典吗？'
           }}
         </NPopconfirm>
-      </NSpace>
+      </div>
     )
   }
 ]);
@@ -155,7 +155,10 @@ async function handleDelete(row: RowData) {
     return;
   }
 
-  await fetchDictDelete(row.id);
+  const { error } = await fetchDictDelete(row.id);
+  if (error) {
+    return;
+  }
   window.$message?.success('字典删除成功');
   await loadData();
 }
@@ -167,7 +170,7 @@ function handleAppendClose() {
 </script>
 
 <template>
-  <SearchTablePageLayout>
+  <SearchTablePageLayout @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">

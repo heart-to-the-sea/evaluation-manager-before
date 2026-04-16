@@ -26,13 +26,7 @@ function getPageKey(pageRoute: PageRouteLike) {
 <template>
   <AppProvider>
     <NuxtLayout>
-      <NuxtPage v-slot="{ Component, route }">
-        <KeepAlive>
-          <component :is="Component" v-if="route.meta.keepAlive" :key="getPageKey(route)" />
-        </KeepAlive>
-
-        <component :is="Component" v-if="!route.meta.keepAlive" :key="getPageKey(route)" />
-      </NuxtPage>
+      <NuxtPage :page-key="getPageKey" />
     </NuxtLayout>
   </AppProvider>
 </template>

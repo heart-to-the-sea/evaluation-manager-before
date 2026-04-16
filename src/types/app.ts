@@ -26,7 +26,6 @@ export interface UserInfo {
 export interface RouteMeta {
   title?: string;
   i18nKey?: string;
-  layout?: string | false;
   icon?: string;
   order?: number;
   hideInMenu?: boolean;
@@ -129,6 +128,88 @@ export interface MenuBo {
   status?: number;
   hideInMenu?: boolean;
   keepAlive?: boolean;
+}
+
+export interface UserVo {
+  id?: string;
+  employeeNo?: string;
+  name?: string;
+  username?: string;
+  gender?: string;
+  birthday?: string;
+  phone?: string;
+  email?: string;
+  avatar?: string;
+  departmentId?: string;
+  departmentName?: string;
+  positionName?: string;
+  positionNameLabel?: string;
+  leaderFlag?: boolean;
+  entryDate?: string;
+  jobStatus?: string;
+  workStatus?: string;
+  accountStatus?: string;
+  account?: string;
+  password?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UserBo {
+  pageNum?: number;
+  pageSize?: number;
+  id?: string;
+  employeeNo?: string;
+  name?: string;
+  username?: string;
+  gender?: string;
+  birthday?: string;
+  phone?: string;
+  email?: string;
+  avatar?: string;
+  departmentId?: string;
+  positionName?: string;
+  leaderFlag?: boolean;
+  entryDate?: string;
+  entryDateStart?: string;
+  entryDateEnd?: string;
+  jobStatus?: string;
+  workStatus?: string;
+  accountStatus?: string;
+  account?: string;
+  password?: string;
+}
+
+export interface UserOptionVo {
+  id?: string;
+  employeeNo?: string;
+  name?: string;
+  account?: string;
+  departmentId?: string;
+}
+
+export interface DepartmentVo {
+  id?: string;
+  parentId?: string;
+  name?: string;
+  leaderEmployeeId?: string;
+  leaderName?: string;
+  sort?: number;
+  status?: string;
+  remark?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  children?: DepartmentVo[];
+}
+
+export interface DepartmentBo {
+  id?: string;
+  parentId?: string;
+  name?: string;
+  leaderEmployeeId?: string;
+  sort?: number;
+  status?: string;
+  remark?: string;
 }
 
 export interface AppMenuOption {
