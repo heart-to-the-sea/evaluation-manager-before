@@ -50,6 +50,60 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.user-manager.info'
   },
   {
+    label: '实习生考核',
+    routeKey: 'intern_assessment',
+    routePath: '/intern-assessment',
+    component: 'layout.base'
+  },
+  {
+    label: '\u5b9e\u4e60\u751f\u7ba1\u7406',
+    routeKey: 'intern_assessment_intern',
+    routePath: '/intern-assessment/intern',
+    component: 'view.intern-assessment.intern.index'
+  },
+  {
+    label: '阶段管理',
+    routeKey: 'intern_assessment_stage',
+    routePath: '/intern-assessment/stage',
+    component: 'view.intern-assessment.stage.index'
+  },
+  {
+    label: '路径模板',
+    routeKey: 'intern_assessment_template',
+    routePath: '/intern-assessment/template',
+    component: 'view.intern-assessment.template.index'
+  },
+  {
+    label: '题库管理',
+    routeKey: 'intern_assessment_question',
+    routePath: '/intern-assessment/question',
+    component: 'view.intern-assessment.question.index'
+  },
+  {
+    label: '考核管理',
+    routeKey: 'intern_assessment_path',
+    routePath: '/intern-assessment/path',
+    component: 'view.intern-assessment.path.index'
+  },
+  {
+    label: '考核记录',
+    routeKey: 'intern_assessment_paper',
+    routePath: '/intern-assessment/paper',
+    component: 'view.intern-assessment.paper.index'
+  },
+  {
+    label: '考核批阅',
+    routeKey: 'intern_assessment_paper_info_id',
+    routePath: '/intern-assessment/paper/info/:id',
+    component: 'view.intern-assessment.paper.info'
+  },
+  {
+    label: '考核报表',
+    routeKey: 'intern_assessment_report',
+    routePath: '/intern-assessment/report',
+    component: 'view.intern-assessment.report.index'
+  },
+  {
     label: '内嵌页面',
     routeKey: 'iframe_page_url',
     routePath: '/iframe-page/:url',

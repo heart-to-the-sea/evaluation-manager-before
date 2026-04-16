@@ -17,6 +17,7 @@ const loading = ref(false);
 const detail = ref<UserVo | null>(null);
 
 const genderDict = useDict('employee_gender');
+const userTypeDict = useDict('user_type');
 const jobStatusDict = useDict('employee_job_status');
 const workStatusDict = useDict('employee_work_status');
 const accountStatusDict = useDict('employee_account_status');
@@ -68,12 +69,14 @@ function getJobStatusType(status?: string) {
       <NCard :bordered="false" class="card-wrapper">
         <div class="mb-16px flex items-center justify-between">
           <div class="text-18px font-600">人员详情</div>
-          <NButton @click="navigateTo('/user-manager/index')">
-            <template #icon>
-              <NIcon><ArrowBackOutline /></NIcon>
-            </template>
-            返回列表
-          </NButton>
+          <div class="flex items-center gap-12px">
+            <NButton @click="navigateTo('/user-manager/index')">
+              <template #icon>
+                <NIcon><ArrowBackOutline /></NIcon>
+              </template>
+              返回列表
+            </NButton>
+          </div>
         </div>
 
         <NSpin :show="loading">
@@ -84,6 +87,7 @@ function getJobStatusType(status?: string) {
             <NDescriptionsItem label="姓名">{{ detail.name || detail.username || '-' }}</NDescriptionsItem>
             <NDescriptionsItem label="登录账号">{{ detail.account || '-' }}</NDescriptionsItem>
             <NDescriptionsItem label="所属部门">{{ detail.departmentName || '-' }}</NDescriptionsItem>
+            <NDescriptionsItem label="用户类型">{{ detail.userTypeLabel || userTypeDict.getLabel(detail.userType) || '-' }}</NDescriptionsItem>
             <NDescriptionsItem label="岗位名称">{{ detail.positionNameLabel || positionDict.getLabel(detail.positionName) || '-' }}</NDescriptionsItem>
             <NDescriptionsItem label="部门负责人">{{ detail.leaderFlag ? '是' : '否' }}</NDescriptionsItem>
             <NDescriptionsItem label="性别">{{ genderDict.getLabel(detail.gender) || '-' }}</NDescriptionsItem>

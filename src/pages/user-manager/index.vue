@@ -1,4 +1,4 @@
-﻿<script setup lang="tsx">
+<script setup lang="tsx">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
 import { NButton, NDataTable, NDatePicker, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NTag, NTreeSelect } from 'naive-ui';
@@ -19,6 +19,7 @@ interface SearchParams {
   name: string;
   phone: string;
   departmentId: string | null;
+  userType: string | null;
   jobStatus: string | null;
   workStatus: string | null;
   accountStatus: string | null;
@@ -34,6 +35,7 @@ const searchParams = ref<SearchParams>({
   name: '',
   phone: '',
   departmentId: null,
+  userType: null,
   jobStatus: null,
   workStatus: null,
   accountStatus: null,
@@ -51,6 +53,7 @@ const pagination = reactive({
   pageSize: 20,
   pageSizes: [20, 50, 100, 200],
   showSizePicker: true,
+  itemCount: 0,
   onChange: (page: number) => {
     pagination.page = page;
     loadData();
@@ -63,11 +66,11 @@ const pagination = reactive({
 });
 
 const genderDict = useDict('employee_gender');
+const userTypeDict = useDict('user_type');
 const jobStatusDict = useDict('employee_job_status');
 const workStatusDict = useDict('employee_work_status');
 const accountStatusDict = useDict('employee_account_status');
 const positionDict = useDict('employee_position');
-
 const departmentOptions = computed(() => buildDepartmentOptions(departmentTree.value));
 
 const columns = computed<DataTableColumns<RowData>>(() => [
@@ -81,6 +84,13 @@ const columns = computed<DataTableColumns<RowData>>(() => [
   },
   { title: '工号', key: 'employeeNo', minWidth: 120, fixed: 'left' },
   { title: '姓名', key: 'name', minWidth: 120, fixed: 'left' },
+  {
+    title: '用户类型',
+    key: 'userType',
+    width: 110,
+    align: 'center',
+    render: row => renderTag(row.userTypeLabel || userTypeDict.getLabel(row.userType), row.userType === 'intern' ? 'warning' : 'info')
+  },
   {
     title: '性别',
     key: 'gender',
@@ -211,6 +221,7 @@ async function loadData() {
       name: searchParams.value.name || undefined,
       phone: searchParams.value.phone || undefined,
       departmentId: searchParams.value.departmentId || undefined,
+      userType: searchParams.value.userType || undefined,
       jobStatus: searchParams.value.jobStatus || undefined,
       workStatus: searchParams.value.workStatus || undefined,
       accountStatus: searchParams.value.accountStatus || undefined,
@@ -226,6 +237,7 @@ async function loadData() {
       ...item,
       key: item.id || `${index}`
     }));
+    pagination.itemCount = data?.total || 0;
   } finally {
     loading.value = false;
   }
@@ -242,6 +254,7 @@ function handleReset() {
     name: '',
     phone: '',
     departmentId: null,
+    userType: null,
     jobStatus: null,
     workStatus: null,
     accountStatus: null,
@@ -312,6 +325,7 @@ async function handleRefresh() {
               placeholder="请选择部门"
               style="width: 180px"
             />
+            <DictSelect v-model:model-value="searchParams.userType" dict-code="user_type" clearable placeholder="用户类型" style="width: 140px" />
             <DictSelect v-model:model-value="searchParams.jobStatus" dict-code="employee_job_status" clearable placeholder="任职状态" style="width: 140px" />
             <DictSelect v-model:model-value="searchParams.workStatus" dict-code="employee_work_status" clearable placeholder="工作状态" style="width: 140px" />
             <DictSelect
