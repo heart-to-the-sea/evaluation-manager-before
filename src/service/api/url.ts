@@ -50,13 +50,20 @@ export const ASSESSMENT_QUESTION_DELETE = '/assessment/question/delete';
 
 export const ASSESSMENT_PATH_LIST = '/assessment/path/list';
 export const ASSESSMENT_PATH_GET_BY_ID = '/assessment/path/getById';
+export const ASSESSMENT_PATH_CALCULATE = '/assessment/path/calculate';
 export const ASSESSMENT_PATH_ADD = '/assessment/path/add';
 export const ASSESSMENT_PATH_UPDATE = '/assessment/path/update';
 export const ASSESSMENT_PATH_DELETE = '/assessment/path/delete';
+export const ASSESSMENT_PATH_STAGE_START = '/assessment/path/stage/start';
+export const ASSESSMENT_PATH_STAGE_END = '/assessment/path/stage/end';
+export const ASSESSMENT_PATH_STAGE_DAILY_LIST = '/assessment/path/stage/daily/list';
+export const ASSESSMENT_PATH_STAGE_DAILY_SAVE = '/assessment/path/stage/daily/save';
+export const ASSESSMENT_PATH_STAGE_DAILY_DELETE = '/assessment/path/stage/daily/delete';
 
 export const ASSESSMENT_PAPER_LIST = '/assessment/paper/list';
 export const ASSESSMENT_PAPER_GET_BY_ID = '/assessment/paper/getById';
 export const ASSESSMENT_PAPER_CREATE = '/assessment/paper/create';
+export const ASSESSMENT_PAPER_REGENERATE = '/assessment/paper/regenerate';
 export const ASSESSMENT_PAPER_REVIEW = '/assessment/paper/review';
 
 export const ASSESSMENT_REPORT_OVERVIEW = '/assessment/report/overview';

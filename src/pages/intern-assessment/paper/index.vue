@@ -7,7 +7,7 @@ import DictSelect from '@/components/common/DictSelect.vue';
 import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import { useDict } from '@/composables/use-dict';
-import { fetchAssessmentPaperList, fetchAssessmentPathList, fetchUserOptions } from '@/service/api';
+import { fetchAssessmentPaperList, fetchAssessmentPaperRegenerate, fetchAssessmentPathList, fetchUserOptions } from '@/service/api';
 import type { AssessmentPaperVo, UserOptionVo } from '@/types/app';
 
 definePageMeta({
@@ -27,6 +27,7 @@ const searchParams = ref({
 const loading = ref(false);
 const tableData = ref<RowData[]>([]);
 const showCreateDialog = ref(false);
+const regenerateId = ref('');
 const userOptions = ref<UserOptionVo[]>([]);
 const pathOptions = ref<SelectOption[]>([]);
 
@@ -88,13 +89,22 @@ const columns = computed<DataTableColumns<RowData>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 170,
+    width: 240,
     fixed: 'right',
     align: 'center',
     render: row => (
       <div class="em-table-actions">
         <NButton size="small" quaternary type="primary" onClick={() => navigateTo(`/intern-assessment/paper/info/${row.id}`)}>
           {row.status === 'reviewed' ? '查看' : '批阅'}
+        </NButton>
+        <NButton
+          size="small"
+          quaternary
+          type="warning"
+          loading={regenerateId.value === row.id}
+          onClick={() => handleRegenerate(row)}
+        >
+          重新生成
         </NButton>
       </div>
     )
@@ -172,12 +182,45 @@ function handleReset() {
   loadData();
 }
 
-async function handleCreateClose(submitted = false) {
+async function handleCreateClose(submitted = false, paperId?: string) {
   showCreateDialog.value = false;
   if (submitted) {
     await loadPathOptions();
     await loadData();
+    if (paperId) {
+      await navigateTo(`/intern-assessment/paper/info/${paperId}`);
+    }
   }
+}
+
+function handleRegenerate(row: RowData) {
+  if (!row.id) {
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '重新生成考卷',
+    content: `确认按当前阶段规则重新生成“${row.stageName || '当前阶段'}”的考卷吗？`,
+    positiveText: '确认',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      regenerateId.value = row.id || '';
+      try {
+        const { data, error } = await fetchAssessmentPaperRegenerate({ paperId: row.id });
+        if (error) {
+          return;
+        }
+
+        window.$message?.success('考核试卷已重新生成');
+        await loadData();
+        if (data) {
+          await navigateTo(`/intern-assessment/paper/info/${data}`);
+        }
+      } finally {
+        regenerateId.value = '';
+      }
+    }
+  });
 }
 </script>
 

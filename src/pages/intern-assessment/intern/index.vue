@@ -1,15 +1,43 @@
 <script setup lang="tsx">
-import { computed, onMounted, reactive, ref } from 'vue';
-import { NButton, NDataTable, NGrid, NGi, NSpace, NSelect, NTag, NTooltip, useThemeVars } from 'naive-ui';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { AddCircle } from '@vicons/ionicons5';
+import {
+  NButton,
+  NDataTable,
+  NGrid,
+  NGi,
+  NIcon,
+  NPopconfirm,
+  NSpace,
+  NSelect,
+  NTag,
+  NTooltip,
+  useThemeVars
+} from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
+import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
+import PathDialog from '@/components/features/intern-assessment/PathDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import { useDict } from '@/composables/use-dict';
-import { fetchAssessmentPathList, fetchAssessmentTemplateList, fetchUserOptions } from '@/service/api';
+import {
+  fetchAssessmentPathDelete,
+  fetchAssessmentPathList,
+  fetchAssessmentStageList,
+  fetchAssessmentTemplateList,
+  fetchUserOptions
+} from '@/service/api';
 import type { AssessmentInternPathStageVo, AssessmentInternPathVo, UserOptionVo } from '@/types/app';
 
+definePageMeta({
+  title: '考核管理'
+});
+
+interface RowData extends AssessmentInternPathVo {
+  key: string;
+}
+
 const TEXT = {
-  title: '实习生管理',
   user: '实习生',
   employeeNo: '工号',
   template: '路径模板',
@@ -18,7 +46,12 @@ const TEXT = {
   progress: '阶段进度',
   updatedAt: '更新时间',
   actions: '操作',
-  viewDetail: '详情',
+  detail: '详情',
+  createPaper: '发起考核',
+  edit: '编辑',
+  delete: '删除',
+  addPath: '新增考核',
+  createPaperHeader: '生成试卷',
   searchUser: '请选择实习生',
   searchTemplate: '请选择路径模板',
   searchStatus: '请选择整体状态',
@@ -27,6 +60,12 @@ const TEXT = {
   emptyProgress: '暂无阶段',
   stageName: '阶段名称',
   stageStatus: '阶段状态',
+  studyDays: '学习时间',
+  startedAt: '开始时间',
+  earliestAssessAt: '最早考核时间',
+  latestAssessAt: '最晚考核时间',
+  timingStatus: '时间状态',
+  timingDescription: '时间说明',
   result: '考核结果',
   score: '得分',
   correctTotal: '答对题数',
@@ -38,31 +77,33 @@ const TEXT = {
   failed: '未通过',
   inProgress: '进行中',
   skipped: '已跳过',
-  notStarted: '未开始'
+  notStarted: '未开始',
+  deleteConfirm: '确认删除该考核路径吗？',
+  deleteSuccess: '考核路径删除成功'
 } as const;
 
-definePageMeta({
-  title: TEXT.title
-});
-
-interface RowData extends AssessmentInternPathVo {
-  key: string;
-}
-
+const route = useRoute();
 const themeVars = useThemeVars();
+
 const loading = ref(false);
 const tableData = ref<RowData[]>([]);
 const userOptions = ref<UserOptionVo[]>([]);
+const stageOptions = ref<SelectOption[]>([]);
 const templateOptions = ref<SelectOption[]>([]);
+const showPathDialog = ref(false);
+const showPaperDialog = ref(false);
+const editData = ref<AssessmentInternPathVo | null>(null);
+const defaultCreateUserId = ref<string | null>(null);
 
 const searchParams = ref({
-  userId: null as string | null,
+  userId: (route.query.userId as string) || null,
   templateId: null as string | null,
   status: null as string | null
 });
 
 const statusDict = useDict('assessment_path_status');
 const stageStatusDict = useDict('assessment_path_stage_status');
+const timingStatusDict = useDict('assessment_stage_timing_status');
 
 const pagination = reactive({
   page: 1,
@@ -143,21 +184,46 @@ const columns = computed<DataTableColumns<RowData>>(() => [
   {
     title: TEXT.actions,
     key: 'actions',
-    width: 120,
+    width: 320,
     fixed: 'right',
     align: 'center',
     render: row => (
       <div class="em-table-actions">
         <NButton size="small" quaternary type="primary" onClick={() => handleViewPath(row)}>
-          {TEXT.viewDetail}
+          {TEXT.detail}
         </NButton>
+        <NButton size="small" quaternary type="primary" onClick={() => handleCreatePaper(row)}>
+          {TEXT.createPaper}
+        </NButton>
+        <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>
+          {TEXT.edit}
+        </NButton>
+        <NPopconfirm onPositiveClick={() => handleDelete(row)}>
+          {{
+            trigger: () => (
+              <NButton size="small" quaternary type="error">
+                {TEXT.delete}
+              </NButton>
+            ),
+            default: () => TEXT.deleteConfirm
+          }}
+        </NPopconfirm>
       </div>
     )
   }
 ]);
 
+watch(
+  () => route.query.userId,
+  value => {
+    searchParams.value.userId = (value as string) || null;
+    pagination.page = 1;
+    loadData();
+  }
+);
+
 onMounted(async () => {
-  await Promise.all([loadUsers(), loadTemplateOptions()]);
+  await Promise.all([loadUsers(), loadStageOptions(), loadTemplateOptions()]);
   await loadData();
 });
 
@@ -168,6 +234,20 @@ async function loadUsers() {
     return;
   }
   userOptions.value = data || [];
+}
+
+async function loadStageOptions() {
+  const { data, error } = await fetchAssessmentStageList({ pageNum: 1, pageSize: 500, status: '1' });
+  if (error) {
+    stageOptions.value = [];
+    return;
+  }
+  stageOptions.value = (data?.records || []).map(item => ({
+    label: `${item.name || '-'}（${item.code || '-'}）`,
+    value: item.id || '',
+    minStudyDays: item.minStudyDays,
+    maxStudyDays: item.maxStudyDays
+  }));
 }
 
 async function loadTemplateOptions() {
@@ -193,6 +273,7 @@ async function loadData() {
       status: searchParams.value.status || undefined
     });
     if (error) return;
+
     tableData.value = (data?.records || []).map((item, index) => ({
       ...item,
       key: item.id || `${index}`
@@ -218,9 +299,50 @@ function handleReset() {
   loadData();
 }
 
+function handleAdd() {
+  editData.value = searchParams.value.userId ? ({ userId: searchParams.value.userId } as AssessmentInternPathVo) : null;
+  showPathDialog.value = true;
+}
+
+function handleEdit(row: RowData) {
+  editData.value = { ...row };
+  showPathDialog.value = true;
+}
+
 function handleViewPath(row: RowData) {
   if (!row.id) return;
   navigateTo(`/intern-assessment/intern/info/${row.id}`);
+}
+
+function handleCreatePaper(row?: RowData) {
+  defaultCreateUserId.value = row?.userId || searchParams.value.userId || null;
+  showPaperDialog.value = true;
+}
+
+async function handleDelete(row: RowData) {
+  if (!row.id) return;
+
+  const { error } = await fetchAssessmentPathDelete(row.id);
+  if (error) return;
+
+  window.$message?.success(TEXT.deleteSuccess);
+  await loadData();
+}
+
+async function handlePathDialogClose(submitted = false) {
+  showPathDialog.value = false;
+  editData.value = null;
+  if (submitted) {
+    await loadData();
+  }
+}
+
+async function handlePaperDialogClose(submitted = false) {
+  showPaperDialog.value = false;
+  defaultCreateUserId.value = null;
+  if (submitted) {
+    await loadData();
+  }
 }
 
 function getPathTagType(status?: string): 'default' | 'success' | 'warning' {
@@ -229,28 +351,18 @@ function getPathTagType(status?: string): 'default' | 'success' | 'warning' {
   return 'default';
 }
 
-function getStageVisual(status?: string) {
+function getTimingTagType(status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (status === 'assessed_on_time') return 'success';
+  if (status === 'assessable' || status === 'assessed_early') return 'warning';
+  if (status === 'overdue' || status === 'assessed_overdue') return 'error';
+  if (status === 'studying') return 'info';
+  return 'default';
+}
+
+function getStageVisual(stage: AssessmentInternPathStageVo) {
   const vars = themeVars.value;
 
-  if (status === 'passed') {
-    return {
-      dotColor: vars.successColor,
-      ringColor: 'rgb(82 196 26 / 18%)',
-      borderColor: 'rgb(82 196 26 / 34%)',
-      lineColor: 'rgb(82 196 26 / 56%)'
-    };
-  }
-
-  if (status === 'in_progress' || status === 'pending_review') {
-    return {
-      dotColor: vars.warningColor,
-      ringColor: 'rgb(250 173 20 / 18%)',
-      borderColor: 'rgb(250 173 20 / 34%)',
-      lineColor: 'rgb(250 173 20 / 44%)'
-    };
-  }
-
-  if (status === 'failed') {
+  if (stage.timingStatus === 'overdue' || stage.timingStatus === 'assessed_overdue') {
     return {
       dotColor: vars.errorColor,
       ringColor: 'rgb(245 34 45 / 18%)',
@@ -259,7 +371,34 @@ function getStageVisual(status?: string) {
     };
   }
 
-  if (status === 'skipped') {
+  if (stage.status === 'passed') {
+    return {
+      dotColor: vars.successColor,
+      ringColor: 'rgb(82 196 26 / 18%)',
+      borderColor: 'rgb(82 196 26 / 34%)',
+      lineColor: 'rgb(82 196 26 / 56%)'
+    };
+  }
+
+  if (stage.status === 'in_progress' || stage.status === 'pending_review') {
+    return {
+      dotColor: vars.warningColor,
+      ringColor: 'rgb(250 173 20 / 18%)',
+      borderColor: 'rgb(250 173 20 / 34%)',
+      lineColor: 'rgb(250 173 20 / 44%)'
+    };
+  }
+
+  if (stage.status === 'failed') {
+    return {
+      dotColor: vars.errorColor,
+      ringColor: 'rgb(245 34 45 / 18%)',
+      borderColor: 'rgb(245 34 45 / 34%)',
+      lineColor: 'rgb(245 34 45 / 44%)'
+    };
+  }
+
+  if (stage.status === 'skipped') {
     return {
       dotColor: vars.infoColor,
       ringColor: 'rgb(32 128 240 / 18%)',
@@ -276,8 +415,8 @@ function getStageVisual(status?: string) {
   };
 }
 
-function getStageDotStyle(status?: string) {
-  const visual = getStageVisual(status);
+function getStageDotStyle(stage: AssessmentInternPathStageVo) {
+  const visual = getStageVisual(stage);
 
   return {
     width: '18px',
@@ -293,8 +432,8 @@ function getStageDotStyle(status?: string) {
   };
 }
 
-function getStageLineStyle(status?: string) {
-  const visual = getStageVisual(status);
+function getStageLineStyle(stage: AssessmentInternPathStageVo) {
+  const visual = getStageVisual(stage);
 
   return {
     width: '42px',
@@ -324,10 +463,23 @@ function resolveCorrectTotal(stage: AssessmentInternPathStageVo) {
   return `${stage.latestPaperCorrectTotal ?? 0} / ${stage.latestPaperQuestionTotal ?? 0}`;
 }
 
+function resolveStudyDaysText(stage: AssessmentInternPathStageVo) {
+  if (stage.minStudyDays == null && stage.maxStudyDays == null) return '未配置';
+  if (stage.minStudyDays != null && stage.maxStudyDays != null) return `${stage.minStudyDays}-${stage.maxStudyDays}天`;
+  if (stage.minStudyDays != null) return `不少于${stage.minStudyDays}天`;
+  return `不超过${stage.maxStudyDays}天`;
+}
+
 function renderTooltipContent(stage: AssessmentInternPathStageVo) {
   const rows = [
     { label: TEXT.stageName, value: stage.stageName || '-' },
     { label: TEXT.stageStatus, value: stageStatusDict.getLabel(stage.status) || stage.status || '-' },
+    { label: TEXT.studyDays, value: resolveStudyDaysText(stage) },
+    { label: TEXT.startedAt, value: stage.startedAt || '-' },
+    { label: TEXT.earliestAssessAt, value: stage.earliestAssessAt || '-' },
+    { label: TEXT.latestAssessAt, value: stage.latestAssessAt || '-' },
+    { label: TEXT.timingStatus, value: timingStatusDict.getLabel(stage.timingStatus) || '-' },
+    { label: TEXT.timingDescription, value: stage.timingDescription || '-' },
     { label: TEXT.result, value: resolveStageResultText(stage) },
     {
       label: TEXT.score,
@@ -371,17 +523,14 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
         }}
       >
         {stages.map((stage, index) => (
-          <div
-            key={stage.id || stage.stageId || `${index}`}
-            style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
-          >
+          <div key={stage.id || stage.stageId || `${index}`} style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
             <NTooltip placement="top" trigger="hover">
               {{
-                trigger: () => <span style={getStageDotStyle(stage.status)}></span>,
+                trigger: () => <span style={getStageDotStyle(stage)}></span>,
                 default: () => renderTooltipContent(stage)
               }}
             </NTooltip>
-            {index < stages.length - 1 && <span style={getStageLineStyle(stage.status)}></span>}
+            {index < stages.length - 1 && <span style={getStageLineStyle(stage)}></span>}
           </div>
         ))}
       </div>
@@ -406,6 +555,14 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
       </NGrid>
     </template>
 
+    <template #h-btns>
+      <NButton type="primary" class="mr-8px" @click="handleAdd">
+        <NIcon class="mr-6px" size="18"><AddCircle /></NIcon>
+        {{ TEXT.addPath }}
+      </NButton>
+      <NButton @click="handleCreatePaper()">{{ TEXT.createPaperHeader }}</NButton>
+    </template>
+
     <NDataTable
       :bordered="false"
       :single-line="false"
@@ -417,6 +574,17 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
       flex-height
       :style="{ height: '100%' }"
     />
+
+    <PathDialog
+      :show="showPathDialog"
+      :data="editData"
+      :user-options="userOptions"
+      :template-options="templateOptions"
+      :stage-options="stageOptions"
+      @close="handlePathDialogClose"
+    />
+
+    <PaperCreateDialog :show="showPaperDialog" :user-options="userOptions" :default-user-id="defaultCreateUserId" @close="handlePaperDialogClose" />
   </SearchTablePageLayout>
 </template>
 
@@ -426,7 +594,7 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
 }
 
 .stage-tooltip {
-  min-width: 260px;
+  min-width: 280px;
 }
 
 .stage-tooltip__row {

@@ -56,7 +56,7 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'layout.base'
   },
   {
-    label: '\u5b9e\u4e60\u751f\u7ba1\u7406',
+    label: '考核管理',
     routeKey: 'intern_assessment_intern',
     routePath: '/intern-assessment/intern',
     component: 'view.intern-assessment.intern.index'
@@ -78,12 +78,6 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     routeKey: 'intern_assessment_question',
     routePath: '/intern-assessment/question',
     component: 'view.intern-assessment.question.index'
-  },
-  {
-    label: '考核管理',
-    routeKey: 'intern_assessment_path',
-    routePath: '/intern-assessment/path',
-    component: 'view.intern-assessment.path.index'
   },
   {
     label: '考核记录',

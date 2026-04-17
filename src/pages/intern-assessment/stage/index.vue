@@ -59,6 +59,13 @@ const columns = computed<DataTableColumns<RowData>>(() => [
   },
   { title: '阶段编码', key: 'code', width: 160 },
   { title: '阶段名称', key: 'name', minWidth: 160 },
+  {
+    title: '学习时间',
+    key: 'studyDays',
+    width: 150,
+    align: 'center',
+    render: row => resolveStudyDaysText(row)
+  },
   { title: '通过分数', key: 'passScore', width: 120, align: 'center', render: row => String(row.passScore ?? '-') },
   { title: '资料数', key: 'materialCount', width: 100, align: 'center', render: row => String(row.materials?.length || 0) },
   { title: '规则数', key: 'ruleCount', width: 100, align: 'center', render: row => String(row.rules?.length || 0) },
@@ -126,6 +133,15 @@ async function loadData() {
   } finally {
     loading.value = false;
   }
+}
+
+function resolveStudyDaysText(row: RowData) {
+  const min = row.minStudyDays;
+  const max = row.maxStudyDays;
+  if (min == null && max == null) return '未配置';
+  if (min != null && max != null) return `${min}-${max}天`;
+  if (min != null) return `不少于${min}天`;
+  return `不超过${max}天`;
 }
 
 function handleSearch() {

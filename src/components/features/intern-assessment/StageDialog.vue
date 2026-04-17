@@ -43,7 +43,22 @@ const formData = ref<AssessmentStageBo>(createDefaultForm());
 const rules: FormRules = {
   code: [{ required: true, message: '请输入阶段编码', trigger: ['input', 'blur'] }],
   name: [{ required: true, message: '请输入阶段名称', trigger: ['input', 'blur'] }],
-  status: [{ required: true, message: '请选择状态', trigger: ['change'] }]
+  status: [{ required: true, message: '请选择状态', trigger: ['change'] }],
+  maxStudyDays: [
+    {
+      trigger: ['change', 'blur'],
+      validator: () => {
+        if (
+          formData.value.minStudyDays != null &&
+          formData.value.maxStudyDays != null &&
+          formData.value.minStudyDays > formData.value.maxStudyDays
+        ) {
+          return new Error('最大学习天数不能小于最小学习天数');
+        }
+        return true;
+      }
+    }
+  ]
 };
 
 watch(
@@ -64,6 +79,8 @@ function createDefaultForm(): AssessmentStageBo {
     description: '',
     sort: 0,
     status: '1',
+    minStudyDays: undefined,
+    maxStudyDays: undefined,
     passScore: undefined,
     passRemark: '',
     materials: [],
@@ -83,6 +100,8 @@ function createFormData(data?: AssessmentStageVo | null): AssessmentStageBo {
     description: data.description || '',
     sort: data.sort ?? 0,
     status: data.status || '1',
+    minStudyDays: data.minStudyDays ?? undefined,
+    maxStudyDays: data.maxStudyDays ?? undefined,
     passScore: data.passScore ?? undefined,
     passRemark: data.passRemark || '',
     materials: (data.materials || []).map(item => ({
@@ -112,17 +131,11 @@ function handleClose() {
 }
 
 function handleAddMaterial() {
-  formData.value.materials = [
-    ...(formData.value.materials || []),
-    createMaterialItem()
-  ];
+  formData.value.materials = [...(formData.value.materials || []), createMaterialItem()];
 }
 
 function handleAddRule() {
-  formData.value.rules = [
-    ...(formData.value.rules || []),
-    createRuleItem()
-  ];
+  formData.value.rules = [...(formData.value.rules || []), createRuleItem()];
 }
 
 function createMaterialItem() {
@@ -203,7 +216,7 @@ async function handleSubmit() {
     @update:show="value => !value && handleClose()"
   >
     <NSpin :show="submitting">
-      <NForm ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="88">
+      <NForm ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="100">
         <NGrid :cols="2" :x-gap="16">
           <NGi>
             <NFormItem label="阶段编码" path="code">
@@ -226,6 +239,16 @@ async function handleSubmit() {
             </NFormItem>
           </NGi>
           <NGi>
+            <NFormItem label="最小学习天数" path="minStudyDays">
+              <NInputNumber v-model:value="formData.minStudyDays" :min="0" clearable style="width: 100%" placeholder="例如 2" />
+            </NFormItem>
+          </NGi>
+          <NGi>
+            <NFormItem label="最大学习天数" path="maxStudyDays">
+              <NInputNumber v-model:value="formData.maxStudyDays" :min="0" clearable style="width: 100%" placeholder="例如 5" />
+            </NFormItem>
+          </NGi>
+          <NGi>
             <NFormItem label="通过分数" path="passScore">
               <NInputNumber v-model:value="formData.passScore" :min="0" style="width: 100%" />
             </NFormItem>
@@ -242,8 +265,8 @@ async function handleSubmit() {
           </NGi>
         </NGrid>
 
-        <div class="mb-12px mt-12px flex items-center justify-between">
-          <div class="text-16px font-600">学习资料</div>
+        <div class="section-header">
+          <div class="section-header__title">学习资料</div>
           <NButton text type="primary" @click="handleAddMaterial">新增资料</NButton>
         </div>
         <NDynamicInput v-model:value="formData.materials" :min="0" :on-create="createMaterialItem">
@@ -258,8 +281,8 @@ async function handleSubmit() {
           </template>
         </NDynamicInput>
 
-        <div class="mb-12px mt-20px flex items-center justify-between">
-          <div class="text-16px font-600">抽题规则</div>
+        <div class="section-header section-header--gap">
+          <div class="section-header__title">抽题规则</div>
           <NButton text type="primary" @click="handleAddRule">新增规则</NButton>
         </div>
         <NDynamicInput v-model:value="formData.rules" :min="0" :on-create="createRuleItem">
@@ -289,3 +312,22 @@ async function handleSubmit() {
     </template>
   </NModal>
 </template>
+
+<style scoped lang="scss">
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.section-header--gap {
+  margin-top: 20px;
+}
+
+.section-header__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+</style>

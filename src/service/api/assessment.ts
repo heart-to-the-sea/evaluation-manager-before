@@ -1,7 +1,12 @@
 import type {
   AssessmentInternPathBo,
+  AssessmentStageActionBo,
+  AssessmentStageDailyReportBo,
+  AssessmentStageDailyReportVo,
+  AssessmentScheduleCalcVo,
   AssessmentInternPathVo,
   AssessmentPaperCreateBo,
+  AssessmentPaperRegenerateBo,
   AssessmentPaperQueryBo,
   AssessmentPaperReviewBo,
   AssessmentPaperVo,
@@ -85,6 +90,10 @@ export function fetchAssessmentPathById(id: string) {
   return request<AssessmentInternPathVo>({ url: URL.ASSESSMENT_PATH_GET_BY_ID, method: 'get', params: { id } });
 }
 
+export function fetchAssessmentPathCalculate(data: AssessmentInternPathBo) {
+  return request<AssessmentScheduleCalcVo>({ url: URL.ASSESSMENT_PATH_CALCULATE, method: 'post', data });
+}
+
 export function fetchAssessmentPathAdd(data: AssessmentInternPathBo) {
   return request<void>({ url: URL.ASSESSMENT_PATH_ADD, method: 'post', data });
 }
@@ -97,6 +106,26 @@ export function fetchAssessmentPathDelete(id: string) {
   return request<void>({ url: URL.ASSESSMENT_PATH_DELETE, method: 'delete', params: { id } });
 }
 
+export function fetchAssessmentPathStageStart(data: AssessmentStageActionBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_START, method: 'put', data });
+}
+
+export function fetchAssessmentPathStageEnd(data: AssessmentStageActionBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_END, method: 'put', data });
+}
+
+export function fetchAssessmentPathStageDailyList(pathStageId: string) {
+  return request<AssessmentStageDailyReportVo[]>({ url: URL.ASSESSMENT_PATH_STAGE_DAILY_LIST, method: 'get', params: { pathStageId } });
+}
+
+export function fetchAssessmentPathStageDailySave(data: AssessmentStageDailyReportBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_DAILY_SAVE, method: 'post', data });
+}
+
+export function fetchAssessmentPathStageDailyDelete(id: string) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_DAILY_DELETE, method: 'delete', params: { id } });
+}
+
 export function fetchAssessmentPaperList(params: AssessmentPaperQueryBo) {
   return request<PageResult<AssessmentPaperVo>>({ url: URL.ASSESSMENT_PAPER_LIST, method: 'get', params });
 }
@@ -106,7 +135,11 @@ export function fetchAssessmentPaperById(id: string) {
 }
 
 export function fetchAssessmentPaperCreate(data: AssessmentPaperCreateBo) {
-  return request<void>({ url: URL.ASSESSMENT_PAPER_CREATE, method: 'post', data });
+  return request<string>({ url: URL.ASSESSMENT_PAPER_CREATE, method: 'post', data });
+}
+
+export function fetchAssessmentPaperRegenerate(data: AssessmentPaperRegenerateBo) {
+  return request<string>({ url: URL.ASSESSMENT_PAPER_REGENERATE, method: 'post', data });
 }
 
 export function fetchAssessmentPaperReview(data: AssessmentPaperReviewBo) {

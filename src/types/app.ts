@@ -271,6 +271,8 @@ export interface AssessmentStageVo {
   description?: string;
   sort?: number;
   status?: string;
+  minStudyDays?: number;
+  maxStudyDays?: number;
   passScore?: number | string;
   passRemark?: string;
   createdAt?: string;
@@ -288,6 +290,8 @@ export interface AssessmentStageBo {
   description?: string;
   sort?: number;
   status?: string;
+  minStudyDays?: number;
+  maxStudyDays?: number;
   passScore?: number | string;
   passRemark?: string;
   materials?: AssessmentStageMaterialBo[];
@@ -302,6 +306,8 @@ export interface AssessmentPathTemplateStageVo {
   stageCode?: string;
   stageNameSnapshot?: string;
   stageDescription?: string;
+  minStudyDays?: number;
+  maxStudyDays?: number;
   passScore?: number | string;
   passRemark?: string;
   materials?: AssessmentStageMaterialVo[];
@@ -398,6 +404,8 @@ export interface AssessmentInternPathStageVo {
   sort?: number;
   sourceType?: string;
   status?: string;
+  minStudyDays?: number;
+  maxStudyDays?: number;
   latestPaperId?: string;
   latestPaperStatus?: string;
   latestPaperQuestionTotal?: number;
@@ -407,6 +415,14 @@ export interface AssessmentInternPathStageVo {
   latestPaperFinalComment?: string;
   latestPaperCreatedAt?: string;
   latestPaperReviewedAt?: string;
+  startedAt?: string;
+  endedAt?: string;
+  rating?: string;
+  autoStartNext?: boolean;
+  earliestAssessAt?: string;
+  latestAssessAt?: string;
+  timingStatus?: string;
+  timingDescription?: string;
   reviewedAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -419,6 +435,40 @@ export interface AssessmentInternPathStageBo {
   sort?: number;
   sourceType?: string;
   status?: string;
+  minStudyDays?: number;
+  maxStudyDays?: number;
+}
+
+export interface AssessmentStageActionBo {
+  pathStageId?: string;
+  rating?: string;
+  autoStartNext?: boolean;
+}
+
+export interface AssessmentStageDailyReportVo {
+  id?: string;
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  reportDate?: string;
+  content?: string;
+  problem?: string;
+  plan?: string;
+  remark?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentStageDailyReportBo {
+  id?: string;
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  reportDate?: string;
+  content?: string;
+  problem?: string;
+  plan?: string;
+  remark?: string;
 }
 
 export interface AssessmentInternPathVo {
@@ -428,6 +478,8 @@ export interface AssessmentInternPathVo {
   employeeNo?: string;
   templateId?: string;
   templateName?: string;
+  trainingStartDate?: string;
+  trainingEndDate?: string;
   currentStageId?: string;
   currentStageName?: string;
   status?: string;
@@ -442,8 +494,30 @@ export interface AssessmentInternPathBo {
   id?: string;
   userId?: string;
   templateId?: string;
+  trainingStartDate?: string;
+  trainingEndDate?: string;
   status?: string;
   stages?: AssessmentInternPathStageBo[];
+}
+
+export interface AssessmentScheduleCalcVo {
+  recommendedTrainingStartDate?: string;
+  autoTrainingEndDate?: string;
+  adjustedTrainingEndDate?: string;
+  startDateAdjusted?: boolean;
+  endDateAdjusted?: boolean;
+  stages?: AssessmentScheduleCalcStageVo[];
+}
+
+export interface AssessmentScheduleCalcStageVo {
+  stageId?: string;
+  stageName?: string;
+  sort?: number;
+  minStudyDays?: number;
+  maxStudyDays?: number;
+  plannedStartDate?: string;
+  earliestAssessDate?: string;
+  latestAssessDate?: string;
 }
 
 export interface AssessmentPaperItemVo {
@@ -457,6 +531,7 @@ export interface AssessmentPaperItemVo {
   score?: number | string;
   optionSnapshot?: string;
   answerSnapshot?: string;
+  analysis?: string;
   studentAnswer?: string;
   autoCorrect?: boolean;
   manualResult?: string;
@@ -504,6 +579,10 @@ export interface AssessmentPaperCreateBo {
   pathStageId?: string;
 }
 
+export interface AssessmentPaperRegenerateBo {
+  paperId?: string;
+}
+
 export interface AssessmentPaperItemReviewBo {
   id?: string;
   studentAnswer?: string;
@@ -513,6 +592,7 @@ export interface AssessmentPaperItemReviewBo {
 
 export interface AssessmentPaperReviewBo {
   paperId?: string;
+  submitFlag?: boolean;
   passFlag?: boolean;
   finalComment?: string;
   items?: AssessmentPaperItemReviewBo[];
