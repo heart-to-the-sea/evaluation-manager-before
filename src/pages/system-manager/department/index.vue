@@ -1,12 +1,12 @@
 ﻿<script setup lang="tsx">
 import { computed, h, onMounted, ref } from 'vue';
 import { AddCircle, ChevronDownOutline, ChevronUpOutline } from '@vicons/ionicons5';
-import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NTag } from 'naive-ui';
+import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace } from 'naive-ui';
 import type { DataTableColumns, DataTableRowKey } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
+import DictTag from '@/components/common/DictTag.vue';
 import DepartmentDialog from '@/components/features/department/DepartmentDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchDepartmentDelete, fetchDepartmentTreeList } from '@/service/api';
 import type { DepartmentVo } from '@/types/app';
 
@@ -24,8 +24,6 @@ const departmentTree = ref<DepartmentVo[]>([]);
 const expandedRowKeys = ref<string[]>([]);
 const showDialog = ref(false);
 const editData = ref<DepartmentVo | null>(null);
-
-const departmentStatusDict = useDict('department_status');
 
 const columns = computed<DataTableColumns<DepartmentVo>>(() => [
   {
@@ -46,12 +44,7 @@ const columns = computed<DataTableColumns<DepartmentVo>>(() => [
     key: 'status',
     width: 100,
     align: 'center',
-    render: row =>
-      h(
-        NTag,
-        { bordered: false, type: row.status === '1' ? 'success' : 'error' },
-        { default: () => departmentStatusDict.getLabel(row.status) || '-' }
-      )
+    render: row => <DictTag dictCode="department_status" value={row.status} />
   },
   {
     title: '排序',

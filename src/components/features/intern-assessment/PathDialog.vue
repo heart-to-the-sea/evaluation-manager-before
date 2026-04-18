@@ -350,7 +350,7 @@ function formatStagePreview(stage: FormStage) {
 
 function formatStageWindow(stage: FormStage) {
   const scheduleStage = findScheduleStage(stage);
-  if (!scheduleStage?.earliestAssessDate && !scheduleStage?.latestAssessDate) return '暂未生成考核窗口';
+  if (!scheduleStage?.earliestAssessDate && !scheduleStage?.latestAssessDate) return '暂未生成考核时间窗口';
   if (scheduleStage?.earliestAssessDate && scheduleStage?.latestAssessDate && scheduleStage.earliestAssessDate !== scheduleStage.latestAssessDate) {
     return `建议考核时间：${scheduleStage.earliestAssessDate} ~ ${scheduleStage.latestAssessDate}`;
   }
@@ -374,7 +374,7 @@ async function handleSubmit() {
     const { error } = isEdit.value ? await fetchAssessmentPathUpdate(payload) : await fetchAssessmentPathAdd(payload);
     if (error) return;
 
-    window.$message?.success(isEdit.value ? '考核路径更新成功' : '考核路径新增成功');
+    window.$message?.success(isEdit.value ? '培训计划更新成功' : '培训计划新增成功');
     emit('close', true);
   } finally {
     submitting.value = false;
@@ -387,7 +387,7 @@ async function handleSubmit() {
     :show="show"
     class="path-dialog-modal"
     preset="card"
-    :title="isEdit ? '编辑考核路径' : '新增考核路径'"
+    :title="isEdit ? '编辑培训计划' : '新增培训计划'"
     :style="{ width: '1220px' }"
     :mask-closable="false"
     @update:show="value => !value && handleClose()"
@@ -406,7 +406,7 @@ async function handleSubmit() {
             </NFormItem>
           </NGi>
           <NGi>
-            <NFormItem label="路径模板" path="templateId">
+            <NFormItem label="培训模板" path="templateId">
               <NSelect
                 v-model:value="formData.templateId"
                 :options="templateOptions"
@@ -434,8 +434,8 @@ async function handleSubmit() {
             </NFormItem>
           </NGi>
           <NGi span="2">
-            <NFormItem label="路径状态" path="status">
-              <DictSelect v-model:model-value="formData.status" dict-code="assessment_path_status" placeholder="请选择路径状态" />
+            <NFormItem label="培训状态" path="status">
+              <DictSelect v-model:model-value="formData.status" dict-code="assessment_path_status" placeholder="请选择培训状态" />
             </NFormItem>
           </NGi>
           <NGi span="2">
@@ -449,8 +449,8 @@ async function handleSubmit() {
 
         <div class="section-header">
           <div>
-            <div class="section-header__title">阶段安排</div>
-            <div class="section-header__subtitle">默认展示路径时间轴，需要时再展开编辑阶段。</div>
+            <div class="section-header__title">培训阶段安排</div>
+            <div class="section-header__subtitle">默认展示培训时间轴，需要时再展开编辑阶段。</div>
           </div>
           <div class="section-header__actions">
             <NButton text type="primary" @click="toggleStageEditor">
@@ -503,12 +503,9 @@ async function handleSubmit() {
                     </NGi>
                     <NGi span="2">
                       <div class="stage-item-card__label">来源</div>
-                      <NSelect
-                        v-model:value="value.sourceType"
-                        :options="[
-                          { label: '模板生成', value: 'template' },
-                          { label: '手动配置', value: 'manual' }
-                        ]"
+                      <DictSelect
+                        v-model:model-value="value.sourceType"
+                        dict-code="assessment_stage_source_type"
                         placeholder="来源"
                       />
                     </NGi>
@@ -540,8 +537,8 @@ async function handleSubmit() {
           <div class="stage-layout__side">
             <div class="path-preview-card">
               <div class="path-preview-card__header">
-                <div class="path-preview-card__title">路径时间轴</div>
-                <div class="path-preview-card__subtitle">实时预览整条考核路径</div>
+                <div class="path-preview-card__title">培训时间轴</div>
+                <div class="path-preview-card__subtitle">实时预览整条培训计划</div>
               </div>
 
               <div v-if="timelineStages.length" class="path-timeline">
@@ -568,7 +565,7 @@ async function handleSubmit() {
     </NSpin>
 
     <template #action>
-      <div class="flex justify-end gap-12px">
+      <div class="em-dialog-actions">
         <NButton @click="handleClose">取消</NButton>
         <NButton type="primary" @click="handleSubmit">保存</NButton>
       </div>

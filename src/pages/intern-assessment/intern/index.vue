@@ -16,6 +16,7 @@ import {
 } from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
+import DictTag from '@/components/common/DictTag.vue';
 import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
 import PathDialog from '@/components/features/intern-assessment/PathDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
@@ -30,7 +31,7 @@ import {
 import type { AssessmentInternPathStageVo, AssessmentInternPathVo, UserOptionVo } from '@/types/app';
 
 definePageMeta({
-  title: '考核管理'
+  title: '培训管理'
 });
 
 interface RowData extends AssessmentInternPathVo {
@@ -40,28 +41,29 @@ interface RowData extends AssessmentInternPathVo {
 const TEXT = {
   user: '实习生',
   employeeNo: '工号',
-  template: '路径模板',
-  currentStage: '当前阶段',
-  totalStatus: '整体状态',
+  template: '培训模板',
+  currentStage: '当前培训阶段',
+  totalStatus: '培训状态',
   progress: '阶段进度',
   updatedAt: '更新时间',
   actions: '操作',
   detail: '详情',
-  createPaper: '发起考核',
+  createPaper: '发起阶段考核',
+  reviewPaper: '阅卷',
   edit: '编辑',
   delete: '删除',
-  addPath: '新增考核',
-  createPaperHeader: '生成试卷',
+  addPath: '新增培训',
+  createPaperHeader: '发起阶段考核',
   searchUser: '请选择实习生',
-  searchTemplate: '请选择路径模板',
-  searchStatus: '请选择整体状态',
+  searchTemplate: '请选择培训模板',
+  searchStatus: '请选择培训状态',
   search: '查询',
   reset: '重置',
   emptyProgress: '暂无阶段',
   stageName: '阶段名称',
-  stageStatus: '阶段状态',
+  stageStatus: '培训阶段状态',
   studyDays: '学习时间',
-  startedAt: '开始时间',
+  startedAt: '培训开始时间',
   earliestAssessAt: '最早考核时间',
   latestAssessAt: '最晚考核时间',
   timingStatus: '时间状态',
@@ -75,11 +77,11 @@ const TEXT = {
   pendingReview: '待批阅',
   passed: '已通过',
   failed: '未通过',
-  inProgress: '进行中',
+  inProgress: '培训中',
   skipped: '已跳过',
-  notStarted: '未开始',
-  deleteConfirm: '确认删除该考核路径吗？',
-  deleteSuccess: '考核路径删除成功'
+  notStarted: '未开始培训',
+  deleteConfirm: '确认删除该培训计划吗？',
+  deleteSuccess: '培训计划删除成功'
 } as const;
 
 const route = useRoute();
@@ -94,6 +96,8 @@ const showPathDialog = ref(false);
 const showPaperDialog = ref(false);
 const editData = ref<AssessmentInternPathVo | null>(null);
 const defaultCreateUserId = ref<string | null>(null);
+const defaultCreatePathId = ref<string | null>(null);
+const defaultCreatePathStageId = ref<string | null>(null);
 
 const searchParams = ref({
   userId: (route.query.userId as string) || null,
@@ -101,8 +105,6 @@ const searchParams = ref({
   status: null as string | null
 });
 
-const statusDict = useDict('assessment_path_status');
-const stageStatusDict = useDict('assessment_path_stage_status');
 const timingStatusDict = useDict('assessment_stage_timing_status');
 
 const pagination = reactive({
@@ -167,7 +169,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'status',
     width: 120,
     align: 'center',
-    render: row => <NTag bordered={false} type={getPathTagType(row.status)}>{statusDict.getLabel(row.status) || '-'}</NTag>
+    render: row => <DictTag dictCode="assessment_path_status" value={row.status} fallbackLabel={getPathStatusText(row.status)} />
   },
   {
     title: TEXT.progress,
@@ -193,7 +195,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
           {TEXT.detail}
         </NButton>
         <NButton size="small" quaternary type="primary" onClick={() => handleCreatePaper(row)}>
-          {TEXT.createPaper}
+          {getPaperActionText(row)}
         </NButton>
         <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>
           {TEXT.edit}
@@ -315,7 +317,17 @@ function handleViewPath(row: RowData) {
 }
 
 function handleCreatePaper(row?: RowData) {
+  const currentStage = row ? getCurrentStageForRow(row) : null;
+  const latestPaperId = currentStage?.latestPaperId;
+
+  if (latestPaperId) {
+    navigateTo(`/intern-assessment/paper/info/${latestPaperId}`);
+    return;
+  }
+
   defaultCreateUserId.value = row?.userId || searchParams.value.userId || null;
+  defaultCreatePathId.value = row?.id || null;
+  defaultCreatePathStageId.value = currentStage?.id || null;
   showPaperDialog.value = true;
 }
 
@@ -340,15 +352,28 @@ async function handlePathDialogClose(submitted = false) {
 async function handlePaperDialogClose(submitted = false) {
   showPaperDialog.value = false;
   defaultCreateUserId.value = null;
+  defaultCreatePathId.value = null;
+  defaultCreatePathStageId.value = null;
   if (submitted) {
     await loadData();
   }
 }
 
-function getPathTagType(status?: string): 'default' | 'success' | 'warning' {
-  if (status === 'completed') return 'success';
-  if (status === 'in_progress') return 'warning';
-  return 'default';
+function getPathStatusText(status?: string) {
+  if (status === 'not_started') return '未开始培训';
+  if (status === 'in_progress') return '培训中';
+  if (status === 'completed') return '已结训';
+  return status || '-';
+}
+
+function getStageStatusText(status?: string) {
+  if (status === 'pending') return '待开始';
+  if (status === 'in_progress') return '培训中';
+  if (status === 'pending_review') return '待批阅';
+  if (status === 'passed') return '已通过';
+  if (status === 'failed') return '未通过';
+  if (status === 'skipped') return '已跳过';
+  return status || '-';
 }
 
 function getTimingTagType(status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
@@ -470,10 +495,25 @@ function resolveStudyDaysText(stage: AssessmentInternPathStageVo) {
   return `不超过${stage.maxStudyDays}天`;
 }
 
+function getCurrentStageForRow(row?: RowData | null) {
+  if (!row?.stages?.length) return null;
+
+  return (
+    row.stages.find(item => item.id && (item.id === row.currentStageId || item.stageId === row.currentStageId))
+    || row.stages.find(item => item.status === 'in_progress' || item.status === 'failed' || item.status === 'pending' || item.status === 'pending_review')
+    || row.stages.find(item => Boolean(item.id))
+    || null
+  );
+}
+
+function getPaperActionText(row: RowData) {
+  return getCurrentStageForRow(row)?.latestPaperId ? TEXT.reviewPaper : TEXT.createPaper;
+}
+
 function renderTooltipContent(stage: AssessmentInternPathStageVo) {
   const rows = [
     { label: TEXT.stageName, value: stage.stageName || '-' },
-    { label: TEXT.stageStatus, value: stageStatusDict.getLabel(stage.status) || stage.status || '-' },
+    { label: TEXT.stageStatus, value: getStageStatusText(stage.status) },
     { label: TEXT.studyDays, value: resolveStudyDaysText(stage) },
     { label: TEXT.startedAt, value: stage.startedAt || '-' },
     { label: TEXT.earliestAssessAt, value: stage.earliestAssessAt || '-' },
@@ -584,7 +624,14 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
       @close="handlePathDialogClose"
     />
 
-    <PaperCreateDialog :show="showPaperDialog" :user-options="userOptions" :default-user-id="defaultCreateUserId" @close="handlePaperDialogClose" />
+    <PaperCreateDialog
+      :show="showPaperDialog"
+      :user-options="userOptions"
+      :default-user-id="defaultCreateUserId"
+      :default-path-id="defaultCreatePathId"
+      :default-path-stage-id="defaultCreatePathStageId"
+      @close="handlePaperDialogClose"
+    />
   </SearchTablePageLayout>
 </template>
 

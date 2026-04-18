@@ -1,4 +1,5 @@
 import { presetIcons, presetUno, transformerDirectives, transformerVariantGroup } from 'unocss';
+import { fileURLToPath } from 'node:url';
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
@@ -29,6 +30,11 @@ export default defineNuxtConfig({
     }
   },
   vite: {
+    resolve: {
+      alias: {
+        '#app-manifest': fileURLToPath(new URL('./app-manifest.json', import.meta.url))
+      }
+    },
     server: {
       proxy: {
         '/em': {

@@ -1,15 +1,17 @@
 <script setup lang="tsx">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
-import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NSelect, NTag } from 'naive-ui';
+import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
+import DictSelect from '@/components/common/DictSelect.vue';
+import DictTag from '@/components/common/DictTag.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import StageDialog from '@/components/features/intern-assessment/StageDialog.vue';
 import { fetchAssessmentStageDelete, fetchAssessmentStageList } from '@/service/api';
 import type { AssessmentStageVo } from '@/types/app';
 
 definePageMeta({
-  title: '阶段管理'
+  title: '培训阶段'
 });
 
 interface RowData extends AssessmentStageVo {
@@ -26,11 +28,6 @@ const loading = ref(false);
 const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentStageVo | null>(null);
-
-const statusOptions = [
-  { label: '启用', value: '1' },
-  { label: '禁用', value: '0' }
-];
 
 const pagination = reactive({
   page: 1,
@@ -75,7 +72,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'status',
     width: 90,
     align: 'center',
-    render: row => h(NTag, { bordered: false, type: row.status === '1' ? 'success' : 'error' }, { default: () => (row.status === '1' ? '启用' : '禁用') })
+    render: row => <DictTag dictCode="assessment_enable_status" value={row.status} />
   },
   { title: '说明', key: 'description', minWidth: 220, render: row => row.description || '-' },
   { title: '更新时间', key: 'updatedAt', width: 180 },
@@ -201,7 +198,7 @@ async function handleDialogClose(submitted = false) {
           <NSpace justify="end">
             <NInput v-model:value="searchParams.code" clearable placeholder="请输入阶段编码" style="width: 180px" @keyup.enter="handleSearch" />
             <NInput v-model:value="searchParams.name" clearable placeholder="请输入阶段名称" style="width: 180px" @keyup.enter="handleSearch" />
-            <NSelect v-model:value="searchParams.status" :options="statusOptions" clearable placeholder="状态" style="width: 140px" />
+            <DictSelect v-model:model-value="searchParams.status" dict-code="assessment_enable_status" clearable placeholder="状态" style="width: 140px" />
             <NButton type="primary" @click="handleSearch">查询</NButton>
             <NButton @click="handleReset">重置</NButton>
           </NSpace>

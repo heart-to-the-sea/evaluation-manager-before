@@ -245,7 +245,7 @@ function resetTheme() {
 .drawer-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 16px;
 }
 
 .color-block {

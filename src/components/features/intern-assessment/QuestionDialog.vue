@@ -34,16 +34,6 @@ const formRef = ref<FormInst | null>(null);
 const submitting = ref(false);
 const isEdit = computed(() => Boolean(props.data?.id));
 
-const statusOptions: SelectOption[] = [
-  { label: '启用', value: '1' },
-  { label: '禁用', value: '0' }
-];
-
-const judgeAnswerOptions: SelectOption[] = [
-  { label: '正确', value: 'true' },
-  { label: '错误', value: 'false' }
-];
-
 const formData = ref<AssessmentQuestionBo>(createDefaultForm());
 
 const needOptions = computed(() => ['single', 'multiple'].includes(String(formData.value.questionType || '')));
@@ -230,7 +220,7 @@ async function handleSubmit() {
           </NGi>
           <NGi>
             <NFormItem label="状态" path="status">
-              <NSelect v-model:value="formData.status" :options="statusOptions" placeholder="请选择状态" />
+              <DictSelect v-model:model-value="formData.status" dict-code="assessment_enable_status" placeholder="请选择状态" />
             </NFormItem>
           </NGi>
           <NGi span="2">
@@ -245,7 +235,11 @@ async function handleSubmit() {
           </NGi>
           <NGi span="2" v-if="isJudge">
             <NFormItem label="标准答案" path="answerContent">
-              <NSelect v-model:value="formData.answerContent" :options="judgeAnswerOptions" placeholder="请选择正确答案" />
+              <DictSelect
+                v-model:model-value="formData.answerContent"
+                dict-code="assessment_judge_answer"
+                placeholder="请选择正确答案"
+              />
             </NFormItem>
           </NGi>
           <NGi span="2" v-else>
@@ -284,7 +278,7 @@ async function handleSubmit() {
     </NSpin>
 
     <template #action>
-      <div class="flex justify-end gap-12px">
+      <div class="em-dialog-actions">
         <NButton @click="handleClose">取消</NButton>
         <NButton type="primary" @click="handleSubmit">保存</NButton>
       </div>

@@ -1,40 +1,42 @@
 <script setup lang="tsx">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
-import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NPopover, NSpace, NSelect, NTag } from 'naive-ui';
+import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NPopover, NSpace, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
+import DictSelect from '@/components/common/DictSelect.vue';
+import DictTag from '@/components/common/DictTag.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import TemplateDialog from '@/components/features/intern-assessment/TemplateDialog.vue';
 import { fetchAssessmentStageList, fetchAssessmentTemplateDelete, fetchAssessmentTemplateList } from '@/service/api';
 import type { AssessmentPathTemplateStageVo, AssessmentPathTemplateVo, AssessmentStageRuleVo, AssessmentStageVo } from '@/types/app';
 
 const TEXT = {
-  title: '\u8003\u6838\u6a21\u677f\u7ba1\u7406',
-  templateName: '\u6a21\u677f\u540d\u79f0',
-  stageCount: '\u9636\u6bb5\u6570',
-  stageOverview: '\u6a21\u677f\u9636\u6bb5',
-  status: '\u72b6\u6001',
-  description: '\u8bf4\u660e',
-  updatedAt: '\u66f4\u65b0\u65f6\u95f4',
-  actions: '\u64cd\u4f5c',
-  enabled: '\u542f\u7528',
-  disabled: '\u7981\u7528',
-  searchName: '\u8bf7\u8f93\u5165\u6a21\u677f\u540d\u79f0',
-  search: '\u67e5\u8be2',
-  reset: '\u91cd\u7f6e',
-  add: '\u65b0\u589e\u8003\u6838\u6a21\u677f',
-  edit: '\u7f16\u8f91',
-  remove: '\u5220\u9664',
-  confirmDelete: '\u786e\u8ba4\u5220\u9664\u8be5\u8003\u6838\u6a21\u677f\u5417\uff1f',
-  deleteSuccess: '\u8003\u6838\u6a21\u677f\u5220\u9664\u6210\u529f',
-  noDescription: '\u6682\u65e0\u8bf4\u660e',
-  passScore: '\u901a\u8fc7\u5206\u6570',
-  passRemark: '\u901a\u8fc7\u6807\u51c6',
-  materials: '\u9700\u8981\u5b8c\u6210\u7684\u4e8b\u9879',
-  rules: '\u8003\u6838\u6307\u6807',
-  noMaterials: '\u6682\u672a\u914d\u7f6e',
-  noRules: '\u6682\u672a\u914d\u7f6e',
-  stageLibraryHint: '\u6a21\u677f\u4e2d\u7684\u9636\u6bb5\u6765\u81ea\u9636\u6bb5\u5e93\uff0c\u8d44\u6599\u4e0e\u6307\u6807\u5728\u9636\u6bb5\u4e2d\u914d\u7f6e'
+  title: '培训模板管理',
+  templateName: '模板名称',
+  stageCount: '阶段数',
+  stageOverview: '模板阶段',
+  status: '状态',
+  description: '说明',
+  updatedAt: '更新时间',
+  actions: '操作',
+  enabled: '启用',
+  disabled: '禁用',
+  searchName: '请输入模板名称',
+  search: '查询',
+  reset: '重置',
+  add: '新增培训模板',
+  edit: '编辑',
+  remove: '删除',
+  confirmDelete: '确认删除该培训模板吗？',
+  deleteSuccess: '培训模板删除成功',
+  noDescription: '暂无说明',
+  passScore: '通过分数',
+  passRemark: '通过标准',
+  materials: '需要完成的事项',
+  rules: '考核指标',
+  noMaterials: '暂未配置',
+  noRules: '暂未配置',
+  stageLibraryHint: '模板中的阶段来自阶段库，资料与指标在阶段中配置'
 } as const;
 
 definePageMeta({
@@ -55,11 +57,6 @@ const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentPathTemplateVo | null>(null);
 const stageList = ref<AssessmentStageVo[]>([]);
-
-const statusOptions = [
-  { label: TEXT.enabled, value: '1' },
-  { label: TEXT.disabled, value: '0' }
-];
 
 const pagination = reactive({
   page: 1,
@@ -99,7 +96,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'status',
     width: 90,
     align: 'center',
-    render: row => h(NTag, { bordered: false, type: row.status === '1' ? 'success' : 'error' }, { default: () => (row.status === '1' ? TEXT.enabled : TEXT.disabled) })
+    render: row => <DictTag dictCode="assessment_enable_status" value={row.status} />
   },
   { title: TEXT.description, key: 'description', minWidth: 240, render: row => row.description || '-' },
   { title: TEXT.updatedAt, key: 'updatedAt', width: 180 },
@@ -278,7 +275,7 @@ async function handleDialogClose(submitted = false) {
         <NGi span="12">
           <NSpace justify="end">
             <NInput v-model:value="searchParams.name" clearable :placeholder="TEXT.searchName" style="width: 220px" @keyup.enter="handleSearch" />
-            <NSelect v-model:value="searchParams.status" :options="statusOptions" clearable :placeholder="TEXT.status" style="width: 140px" />
+            <DictSelect v-model:model-value="searchParams.status" dict-code="assessment_enable_status" clearable :placeholder="TEXT.status" style="width: 140px" />
             <NButton type="primary" @click="handleSearch">{{ TEXT.search }}</NButton>
             <NButton @click="handleReset">{{ TEXT.reset }}</NButton>
           </NSpace>

@@ -4,14 +4,14 @@ import { AddCircle } from '@vicons/ionicons5';
 import { NButton, NDataTable, NGrid, NGi, NIcon, NSpace, NSelect, NTag } from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
+import DictTag from '@/components/common/DictTag.vue';
 import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchAssessmentPaperList, fetchAssessmentPaperRegenerate, fetchAssessmentPathList, fetchUserOptions } from '@/service/api';
 import type { AssessmentPaperVo, UserOptionVo } from '@/types/app';
 
 definePageMeta({
-  title: '考核记录'
+  title: '阶段考核'
 });
 
 interface RowData extends AssessmentPaperVo {
@@ -30,8 +30,6 @@ const showCreateDialog = ref(false);
 const regenerateId = ref('');
 const userOptions = ref<UserOptionVo[]>([]);
 const pathOptions = ref<SelectOption[]>([]);
-
-const paperStatusDict = useDict('assessment_paper_status');
 
 const pagination = reactive({
   page: 1,
@@ -66,13 +64,13 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     render: (_, index) => String((pagination.page - 1) * pagination.pageSize + index + 1)
   },
   { title: '实习生', key: 'userName', width: 140, fixed: 'left', render: row => row.userName || '-' },
-  { title: '考核阶段', key: 'stageName', width: 160, render: row => row.stageName || '-' },
+  { title: '培训阶段', key: 'stageName', width: 160, render: row => row.stageName || '-' },
   {
     title: '试卷状态',
     key: 'status',
     width: 120,
     align: 'center',
-    render: row => h(NTag, { bordered: false, type: row.status === 'reviewed' ? 'success' : 'warning' }, { default: () => paperStatusDict.getLabel(row.status) || '-' })
+    render: row => <DictTag dictCode="assessment_paper_status" value={row.status} />
   },
   { title: '题目数', key: 'questionTotal', width: 90, align: 'center', render: row => String(row.questionTotal ?? 0) },
   { title: '正确数', key: 'correctTotal', width: 90, align: 'center', render: row => String(row.correctTotal ?? 0) },
@@ -95,7 +93,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     render: row => (
       <div class="em-table-actions">
         <NButton size="small" quaternary type="primary" onClick={() => navigateTo(`/intern-assessment/paper/info/${row.id}`)}>
-          {row.status === 'reviewed' ? '查看' : '批阅'}
+          {row.status === 'reviewed' ? '查看考核' : '阅卷'}
         </NButton>
         <NButton
           size="small"
@@ -138,7 +136,7 @@ async function loadPathOptions() {
   }
 
   pathOptions.value = (data?.records || []).map(item => ({
-    label: `${item.userName || '-'} / ${item.templateName || '-'} / ${item.currentStageName || '未开始'}`,
+    label: `${item.userName || '-'} / ${item.templateName || '-'} / ${item.currentStageName || '未开始培训'}`,
     value: item.id || ''
   }));
 }
@@ -211,7 +209,7 @@ function handleRegenerate(row: RowData) {
           return;
         }
 
-        window.$message?.success('考核试卷已重新生成');
+        window.$message?.success('阶段考核试卷已重新生成');
         await loadData();
         if (data) {
           await navigateTo(`/intern-assessment/paper/info/${data}`);
@@ -231,7 +229,7 @@ function handleRegenerate(row: RowData) {
         <NGi span="12">
           <NSpace justify="end">
             <NSelect v-model:value="searchParams.userId" :options="userSelectOptions" clearable filterable placeholder="实习生" style="width: 220px" />
-            <NSelect v-model:value="searchParams.pathId" :options="pathOptions" clearable placeholder="考核路径" style="width: 280px" />
+            <NSelect v-model:value="searchParams.pathId" :options="pathOptions" clearable placeholder="培训计划" style="width: 280px" />
             <DictSelect v-model:model-value="searchParams.status" dict-code="assessment_paper_status" clearable placeholder="试卷状态" style="width: 140px" />
             <NButton type="primary" @click="handleSearch">查询</NButton>
             <NButton @click="handleReset">重置</NButton>
@@ -243,7 +241,7 @@ function handleRegenerate(row: RowData) {
     <template #h-btns>
       <NButton type="primary" @click="showCreateDialog = true">
         <NIcon class="mr-6px" size="18"><AddCircle /></NIcon>
-        生成试卷
+        发起阶段考核
       </NButton>
     </template>
 

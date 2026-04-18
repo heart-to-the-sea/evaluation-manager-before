@@ -12,8 +12,8 @@ import {
   NSwitch,
   NTag
 } from 'naive-ui';
+import DictTag from '@/components/common/DictTag.vue';
 import DictSelect from '@/components/common/DictSelect.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchAssessmentPaperById, fetchAssessmentPaperRegenerate, fetchAssessmentPaperReview } from '@/service/api';
 import type { AssessmentPaperItemVo, AssessmentPaperReviewBo, AssessmentPaperVo } from '@/types/app';
 
@@ -49,12 +49,8 @@ const detail = ref<ReviewPaperDetail | null>(null);
 const passFlag = ref(false);
 const finalComment = ref('');
 
-const paperStatusDict = useDict('assessment_paper_status');
-const questionTypeDict = useDict('assessment_question_type');
-const difficultyDict = useDict('assessment_question_difficulty');
-
 const title = computed(() => {
-  if (!detail.value) return '考核记录';
+  if (!detail.value) return '阶段考核';
   const stageName = detail.value.stageName || '未命名阶段';
   const userName = detail.value.userName || '实习生';
   return `${userName} - ${stageName}`;
@@ -136,7 +132,7 @@ async function submitReview(submitFlag: boolean) {
       return;
     }
 
-    window.$message?.success(submitFlag ? '考核记录已提交批阅' : '考核记录已保存');
+    window.$message?.success(submitFlag ? '阶段考核已提交批阅' : '阶段考核已保存');
     await loadDetail();
     emit('refresh');
   } finally {
@@ -154,10 +150,6 @@ function handleSaveDraft() {
 
 function handleSubmitReview() {
   submitReview(true);
-}
-
-function getStatusType(status?: string): 'default' | 'success' | 'warning' {
-  return status === 'reviewed' ? 'success' : status ? 'warning' : 'default';
 }
 
 function getPassType(status?: string, pass?: boolean): 'default' | 'success' | 'error' | 'warning' {
@@ -212,7 +204,7 @@ async function handleRegenerate() {
       return;
     }
 
-    window.$message?.success('考核试卷已重新生成');
+    window.$message?.success('阶段考核试卷已重新生成');
     if (data && data !== currentPaperId) {
       emit('refresh');
       emit('close');
@@ -237,19 +229,17 @@ async function handleRegenerate() {
     @update:show="value => !value && handleClose()"
   >
     <NSpin :show="loading || saving || submitting || regenerating">
-      <NEmpty v-if="!detail" description="暂无考核记录" />
+      <NEmpty v-if="!detail" description="暂无阶段考核记录" />
 
       <NScrollbar v-else class="paper-info-modal__scroll">
         <div class="paper-info-modal__content">
           <NDescriptions bordered label-placement="left" :column="2">
             <NDescriptionsItem label="实习生">{{ detail.userName || '-' }}</NDescriptionsItem>
-            <NDescriptionsItem label="考核阶段">{{ detail.stageName || '-' }}</NDescriptionsItem>
+            <NDescriptionsItem label="培训阶段">{{ detail.stageName || '-' }}</NDescriptionsItem>
             <NDescriptionsItem label="试卷状态">
-              <NTag :bordered="false" :type="getStatusType(detail.status)">
-                {{ paperStatusDict.getLabel(detail.status) || '-' }}
-              </NTag>
+              <DictTag dict-code="assessment_paper_status" :value="detail.status" />
             </NDescriptionsItem>
-            <NDescriptionsItem label="考核结果">
+            <NDescriptionsItem label="考核结论">
               <NTag :bordered="false" :type="getPassType(detail.status, detail.passFlag)">
                 {{ getPassText(detail.status, detail.passFlag) }}
               </NTag>
@@ -281,8 +271,8 @@ async function handleRegenerate() {
                   <span class="question-card__knowledge">{{ item.knowledgePoint || '未设置知识点' }}</span>
                 </div>
                 <div class="question-card__tags">
-                  <NTag :bordered="false" type="info">{{ questionTypeDict.getLabel(item.questionType) || '-' }}</NTag>
-                  <NTag :bordered="false" type="warning">{{ difficultyDict.getLabel(item.difficulty) || '-' }}</NTag>
+                  <DictTag dict-code="assessment_question_type" :value="item.questionType" />
+                  <DictTag dict-code="assessment_question_difficulty" :value="item.difficulty" />
                   <NTag :bordered="false" type="success">分值 {{ item.score ?? 0 }}</NTag>
                   <NTag :bordered="false" type="default">自动判题 {{ item.autoCorrect == null ? '-' : item.autoCorrect ? '正确' : '错误' }}</NTag>
                 </div>
@@ -422,7 +412,7 @@ html.dark .question-card {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 16px;
 }
 
 .paper-result__title,

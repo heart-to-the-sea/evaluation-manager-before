@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { ArrowBackOutline } from '@vicons/ionicons5';
-import { NButton, NDatePicker, NDescriptions, NDescriptionsItem, NEmpty, NIcon, NInput, NModal, NSelect, NSpin, NSwitch, NTag } from 'naive-ui';
+import { ArrowBackOutline, ChevronDownOutline, ChevronForwardOutline } from '@vicons/ionicons5';
+import { NButton, NDatePicker, NDescriptions, NDescriptionsItem, NEmpty, NIcon, NInput, NModal, NSpin, NSwitch, NTag } from 'naive-ui';
+import DictTag from '@/components/common/DictTag.vue';
+import DictSelect from '@/components/common/DictSelect.vue';
 import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
 import PaperInfoModal from '@/components/features/intern-assessment/PaperInfoModal.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import {
   fetchAssessmentPaperList,
   fetchAssessmentPathById,
@@ -26,7 +27,7 @@ import type {
 } from '@/types/app';
 
 definePageMeta({
-  title: '考核详情'
+  title: '培训详情'
 });
 
 const route = useRoute();
@@ -45,6 +46,7 @@ const detail = ref<AssessmentInternPathVo | null>(null);
 const userDetail = ref<UserVo | null>(null);
 const paperRecords = ref<AssessmentPaperVo[]>([]);
 const dailyReportMap = ref<Record<string, AssessmentStageDailyReportVo[]>>({});
+const expandedStageKeys = ref<string[]>([]);
 
 const stageEndForm = reactive({
   rating: 'B',
@@ -59,24 +61,6 @@ const dailyReportForm = reactive({
   plan: '',
   remark: ''
 });
-
-const stageRatingOptions = [
-  { label: 'A', value: 'A' },
-  { label: 'B', value: 'B' },
-  { label: 'C', value: 'C' },
-  { label: 'D', value: 'D' }
-];
-
-const genderDict = useDict('employee_gender');
-const userTypeDict = useDict('user_type');
-const positionDict = useDict('employee_position');
-const jobStatusDict = useDict('employee_job_status');
-const workStatusDict = useDict('employee_work_status');
-const accountStatusDict = useDict('employee_account_status');
-const pathStatusDict = useDict('assessment_path_status');
-const stageStatusDict = useDict('assessment_path_stage_status');
-const paperStatusDict = useDict('assessment_paper_status');
-const timingStatusDict = useDict('assessment_stage_timing_status');
 
 const pathId = computed(() => String(route.params.id || ''));
 const detailDescriptionLabelStyle = {
@@ -124,12 +108,25 @@ const currentStage = computed(() => {
 
   return (
     stages.find(item => item.stageId === detail.value?.currentStageId) ||
-    stages.find(item => ['in_progress', 'failed', 'pending', 'pending_review'].includes(item.status || '')) ||
+    stages.find(item => item.status === 'in_progress') ||
+    stages.find(item => item.status === 'failed') ||
+    stages.find(item => item.status === 'pending') ||
+    stages.find(item => item.status === 'pending_review') ||
     stages[0]
   );
 });
 
-const canAssess = computed(() => Boolean(detail.value?.id && detail.value?.userId && currentStage.value && detail.value?.status !== 'completed'));
+const currentStageLatestRecord = computed(() => getStageLatestRecord(currentStage.value));
+type StageActionMode = 'start' | 'create' | 'review' | 'view' | 'none';
+const currentAssessActionMode = computed<StageActionMode>(() => resolveStageActionMode(currentStage.value, currentStageLatestRecord.value));
+const canAssessAction = computed(() => currentAssessActionMode.value !== 'none');
+const currentAssessActionText = computed(() => {
+  if (currentAssessActionMode.value === 'start') return '开始培训';
+  if (currentAssessActionMode.value === 'review') return '阅卷';
+  if (currentAssessActionMode.value === 'view') return '查看考核';
+  if (currentAssessActionMode.value === 'create') return '发起阶段考核';
+  return '发起阶段考核';
+});
 
 watch(pathId, () => {
   loadDetail();
@@ -168,6 +165,7 @@ async function loadDetail() {
     }
 
     await Promise.all(tasks);
+    syncExpandedStageKeys(data.stages || [], data.currentStageId || '');
   } finally {
     loading.value = false;
   }
@@ -206,26 +204,21 @@ async function loadDailyReports(stages: AssessmentInternPathStageVo[]) {
   dailyReportMap.value = Object.fromEntries(entries);
 }
 
-function getPathStatusType(status?: string): 'default' | 'success' | 'warning' {
-  if (status === 'completed') return 'success';
-  if (status === 'in_progress') return 'warning';
-  return 'default';
+function getPathStatusText(status?: string) {
+  if (status === 'not_started') return '未开始培训';
+  if (status === 'in_progress') return '培训中';
+  if (status === 'completed') return '已结训';
+  return status || '-';
 }
 
-function getStageStatusType(status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (status === 'passed') return 'success';
-  if (status === 'in_progress' || status === 'pending_review') return 'warning';
-  if (status === 'failed') return 'error';
-  if (status === 'skipped') return 'info';
-  return 'default';
-}
-
-function getTimingTagType(status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (status === 'assessed_on_time') return 'success';
-  if (status === 'assessable' || status === 'assessed_early') return 'warning';
-  if (status === 'overdue' || status === 'assessed_overdue') return 'error';
-  if (status === 'studying') return 'info';
-  return 'default';
+function getStageStatusText(status?: string) {
+  if (status === 'pending') return '待开始';
+  if (status === 'in_progress') return '培训中';
+  if (status === 'pending_review') return '待批阅';
+  if (status === 'passed') return '已通过';
+  if (status === 'failed') return '未通过';
+  if (status === 'skipped') return '已跳过';
+  return status || '-';
 }
 
 function getPaperPassType(record?: AssessmentPaperVo): 'default' | 'success' | 'error' | 'warning' {
@@ -248,9 +241,18 @@ function getStageResultText(stage: AssessmentInternPathStageVo) {
   if (stage.latestPaperStatus === 'pending_review') return '待批阅';
   if (stage.latestPaperPassFlag === true) return '已通过';
   if (stage.latestPaperPassFlag === false) return '未通过';
-  if (stage.status === 'in_progress') return '进行中';
+  if (stage.status === 'in_progress') return '培训中';
   if (stage.status === 'skipped') return '已跳过';
-  return '未开始';
+  return '未开始培训';
+}
+
+function getStageResultTagType(stage: AssessmentInternPathStageVo): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (stage.latestPaperStatus === 'pending_review') return 'warning';
+  if (stage.latestPaperPassFlag === true) return 'success';
+  if (stage.latestPaperPassFlag === false) return 'error';
+  if (stage.status === 'in_progress') return 'warning';
+  if (stage.status === 'skipped') return 'info';
+  return 'default';
 }
 
 function getRecordResultText(record: AssessmentPaperVo) {
@@ -272,9 +274,77 @@ function resolveStageRatingText(stage?: AssessmentInternPathStageVo | null) {
   return stage?.rating || '-';
 }
 
+function resolveActualStudyDaysText(stage?: AssessmentInternPathStageVo | null) {
+  if (!stage || stage.studyDurationDays == null) return '-';
+  return `${stage.studyDurationDays}天`;
+}
+
+function resolveFlagText(value?: boolean | null) {
+  if (value === true) return '是';
+  if (value === false) return '否';
+  return '-';
+}
+
+function getStageKey(stage?: Pick<AssessmentInternPathStageVo, 'id' | 'stageId'> | null) {
+  return stage?.id || stage?.stageId || '';
+}
+
+function syncExpandedStageKeys(stages: AssessmentInternPathStageVo[], currentStageId?: string | null) {
+  const validKeys = new Set((stages || []).map(item => getStageKey(item)).filter(Boolean));
+  const nextKeys = expandedStageKeys.value.filter(key => validKeys.has(key));
+  if (!nextKeys.length) {
+    const currentKey = (stages || []).find(item => item.stageId === currentStageId || item.id === currentStageId);
+    const fallbackKey = currentKey ? getStageKey(currentKey) : getStageKey(stages?.[0]);
+    expandedStageKeys.value = fallbackKey ? [fallbackKey] : [];
+    return;
+  }
+  expandedStageKeys.value = nextKeys;
+}
+
+function isStageExpanded(stage: AssessmentInternPathStageVo) {
+  return expandedStageKeys.value.includes(getStageKey(stage));
+}
+
+function toggleStageExpanded(stage: AssessmentInternPathStageVo) {
+  const key = getStageKey(stage);
+  if (!key) return;
+  expandedStageKeys.value = isStageExpanded(stage)
+    ? expandedStageKeys.value.filter(item => item !== key)
+    : [...expandedStageKeys.value, key];
+}
+
+function formatDateDay(value?: string | null) {
+  if (!value) return '-';
+  return value.includes('T') ? value.slice(0, 10) : value.slice(0, 10);
+}
+
+function resolveStageDurationSummary(stage: AssessmentInternPathStageVo) {
+  if (stage.studyDurationDays != null) return `已持续${stage.studyDurationDays}天`;
+  if (stage.status === 'pending') return '尚未开始';
+  if (stage.status === 'in_progress') return '进行中';
+  return '-';
+}
+
+function getStageDurationTagType(stage: AssessmentInternPathStageVo): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (stage.timingStatus === 'overdue' || stage.timingStatus === 'assessed_overdue') return 'error';
+  if (stage.studyDurationDays != null) return 'info';
+  if (stage.status === 'in_progress') return 'warning';
+  if (stage.status === 'passed') return 'success';
+  return 'default';
+}
+
+function resolveStagePeriodText(stage: AssessmentInternPathStageVo) {
+  const startedAt = formatDateDay(stage.startedAt);
+  const endedAt = formatDateDay(stage.endedAt);
+  if (startedAt === '-' && endedAt === '-') return '-';
+  if (endedAt === '-') return `${startedAt} ~ 至今`;
+  return `${startedAt} ~ ${endedAt}`;
+}
+
 function canStartStage(stage: AssessmentInternPathStageVo) {
   return Boolean(
     detail.value?.status !== 'completed'
+    && stage.id
     && ((stage.id && stage.id === currentStage.value?.id) || (stage.stageId && stage.stageId === detail.value?.currentStageId))
     && ['pending', 'failed'].includes(stage.status || '')
   );
@@ -408,30 +478,49 @@ function getStageLatestRecord(stage: (AssessmentInternPathStageVo & { records?: 
   return stage?.records?.[0] || null;
 }
 
+function resolveStageActionMode(
+  stage: (AssessmentInternPathStageVo & { records?: AssessmentPaperVo[] }) | null | undefined,
+  latestRecord: AssessmentPaperVo | null
+): StageActionMode {
+  if (!detail.value?.id || !detail.value?.userId || !stage || detail.value.status === 'completed') return 'none';
+  if (['pending', 'failed'].includes(stage.status || '')) return stage.id ? 'start' : 'none';
+  if (stage.status === 'pending_review') return latestRecord?.id ? 'review' : 'none';
+  if (stage.status === 'in_progress') return 'create';
+  if (latestRecord?.id) return 'view';
+  return 'none';
+}
+
 function canGenerateStage(stage: AssessmentInternPathStageVo) {
   if (!detail.value?.id || !detail.value?.userId || detail.value.status === 'completed') return false;
   const isCurrentStage = Boolean(
     (stage.id && stage.id === currentStage.value?.id)
     || (stage.stageId && stage.stageId === detail.value.currentStageId)
   );
-  return isCurrentStage && ['pending', 'in_progress', 'failed'].includes(stage.status || '');
+  return isCurrentStage && stage.status === 'in_progress';
 }
 
 function getStageActionText(stage: AssessmentInternPathStageVo & { records?: AssessmentPaperVo[] }) {
   const latestRecord = getStageLatestRecord(stage);
-  if (latestRecord?.status === 'pending_review') return '批阅';
-  if (latestRecord?.id) return '查看记录';
-  if (canGenerateStage(stage)) return '生成考核';
+  const actionMode = resolveStageActionMode(stage, latestRecord);
+  if (actionMode === 'start') return '开始培训';
+  if (actionMode === 'review') return '阅卷';
+  if (actionMode === 'view') return '查看考核';
+  if (canGenerateStage(stage)) return '发起阶段考核';
   return '';
 }
 
 function handleStageAction(stage: AssessmentInternPathStageVo & { records?: AssessmentPaperVo[] }) {
   const latestRecord = getStageLatestRecord(stage);
-  if (latestRecord?.status === 'pending_review' || latestRecord?.id) {
+  const actionMode = resolveStageActionMode(stage, latestRecord);
+  if (actionMode === 'start') {
+    handleStartStage(stage);
+    return;
+  }
+  if ((actionMode === 'review' || actionMode === 'view') && latestRecord?.id) {
     handleViewPaper(latestRecord);
     return;
   }
-  if (canGenerateStage(stage)) {
+  if (actionMode === 'create') {
     assessStage.value = stage;
     showAssessDialog.value = true;
   }
@@ -439,6 +528,15 @@ function handleStageAction(stage: AssessmentInternPathStageVo & { records?: Asse
 
 function handleAssessCurrentStage() {
   if (!currentStage.value) return;
+  if (currentAssessActionMode.value === 'start') {
+    handleStartStage(currentStage.value);
+    return;
+  }
+  if ((currentAssessActionMode.value === 'review' || currentAssessActionMode.value === 'view') && currentStageLatestRecord.value?.id) {
+    handleViewPaper(currentStageLatestRecord.value);
+    return;
+  }
+  if (currentAssessActionMode.value !== 'create') return;
   assessStage.value = currentStage.value;
   showAssessDialog.value = true;
 }
@@ -467,10 +565,17 @@ async function handlePaperDialogRefresh() {
 
 <template>
   <InfoPageLayout>
-    <template #title>考核详情</template>
+    <template #title>培训详情</template>
 
     <template #actions>
-      <NButton type="primary" :disabled="!canAssess" @click="handleAssessCurrentStage">考核</NButton>
+      <NButton
+        type="primary"
+        :disabled="!canAssessAction"
+        :loading="Boolean(currentStage?.id && actionLoadingStageId === currentStage.id)"
+        @click="handleAssessCurrentStage"
+      >
+        {{ currentAssessActionText }}
+      </NButton>
       <NButton @click="navigateTo('/intern-assessment/intern')">
         <template #icon>
           <NIcon><ArrowBackOutline /></NIcon>
@@ -481,7 +586,7 @@ async function handlePaperDialogRefresh() {
 
     <template #contentBox>
       <NSpin :show="loading">
-          <NEmpty v-if="!detail" description="暂无考核信息" />
+          <NEmpty v-if="!detail" description="暂无培训信息" />
 
           <template v-else>
             <div class="detail-overview-grid">
@@ -498,34 +603,28 @@ async function handlePaperDialogRefresh() {
                   <NDescriptionsItem label="实习生">{{ detail.userName || userDetail?.name || userDetail?.username || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="工号">{{ detail.employeeNo || userDetail?.employeeNo || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="账号">{{ userDetail?.account || '-' }}</NDescriptionsItem>
-                  <NDescriptionsItem label="性别">{{ genderDict.getLabel(userDetail?.gender) || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="性别"><DictTag dict-code="employee_gender" :value="userDetail?.gender" /></NDescriptionsItem>
                   <NDescriptionsItem label="手机号">{{ userDetail?.phone || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="邮箱">{{ userDetail?.email || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="所属部门">{{ userDetail?.departmentName || '-' }}</NDescriptionsItem>
-                  <NDescriptionsItem label="岗位">{{ userDetail?.positionNameLabel || positionDict.getLabel(userDetail?.positionName) || '-' }}</NDescriptionsItem>
-                  <NDescriptionsItem label="用户类型">{{ userDetail?.userTypeLabel || userTypeDict.getLabel(userDetail?.userType) || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="岗位"><DictTag dict-code="employee_position" :value="userDetail?.positionName" :fallback-label="userDetail?.positionNameLabel || '-'" /></NDescriptionsItem>
+                  <NDescriptionsItem label="用户类型"><DictTag dict-code="user_type" :value="userDetail?.userType" :fallback-label="userDetail?.userTypeLabel || '-'" /></NDescriptionsItem>
                   <NDescriptionsItem label="是否负责人">{{ userDetail?.leaderFlag ? '是' : '否' }}</NDescriptionsItem>
                   <NDescriptionsItem label="入职状态">
-                    <NTag :bordered="false" :type="userDetail?.jobStatus === '1' ? 'success' : 'warning'">
-                      {{ jobStatusDict.getLabel(userDetail?.jobStatus) || '-' }}
-                    </NTag>
+                    <DictTag dict-code="employee_job_status" :value="userDetail?.jobStatus" />
                   </NDescriptionsItem>
                   <NDescriptionsItem label="工作状态">
-                    <NTag :bordered="false" type="info">
-                      {{ workStatusDict.getLabel(userDetail?.workStatus) || '-' }}
-                    </NTag>
+                    <DictTag dict-code="employee_work_status" :value="userDetail?.workStatus" />
                   </NDescriptionsItem>
                   <NDescriptionsItem label="账号状态">
-                    <NTag :bordered="false" :type="userDetail?.accountStatus === '1' ? 'success' : 'error'">
-                      {{ accountStatusDict.getLabel(userDetail?.accountStatus) || '-' }}
-                    </NTag>
+                    <DictTag dict-code="employee_account_status" :value="userDetail?.accountStatus" />
                   </NDescriptionsItem>
                   <NDescriptionsItem label="更新时间">{{ userDetail?.updatedAt || detail.updatedAt || '-' }}</NDescriptionsItem>
                 </NDescriptions>
               </div>
 
               <div class="detail-section">
-                <div class="detail-section__title">考核概览</div>
+                <div class="detail-section__title">培训概览</div>
                 <NDescriptions
                   bordered
                   label-placement="left"
@@ -534,23 +633,24 @@ async function handlePaperDialogRefresh() {
                   :label-style="detailDescriptionLabelStyle"
                   :content-style="detailDescriptionContentStyle"
                 >
-                  <NDescriptionsItem label="路径模板">{{ detail.templateName || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="培训模板">{{ detail.templateName || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="培训开始时间">{{ detail.trainingStartDate || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="培训结束时间">{{ detail.trainingEndDate || '-' }}</NDescriptionsItem>
-                  <NDescriptionsItem label="当前阶段">{{ detail.currentStageName || '-' }}</NDescriptionsItem>
-                  <NDescriptionsItem label="整体状态">
-                    <NTag :bordered="false" :type="getPathStatusType(detail.status)">
-                      {{ pathStatusDict.getLabel(detail.status) || '-' }}
-                    </NTag>
+                  <NDescriptionsItem label="当前培训阶段">{{ detail.currentStageName || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="培训状态">
+                    <DictTag dict-code="assessment_path_status" :value="detail.status" :fallback-label="getPathStatusText(detail.status)" />
                   </NDescriptionsItem>
                   <NDescriptionsItem label="阶段数量">{{ detail.stages?.length || 0 }}</NDescriptionsItem>
                   <NDescriptionsItem label="当前学习时间">{{ resolveStudyDaysText(currentStage) }}</NDescriptionsItem>
-                  <NDescriptionsItem label="当前时间状态">
-                    <NTag :bordered="false" :type="getTimingTagType(currentStage?.timingStatus)">
-                      {{ timingStatusDict.getLabel(currentStage?.timingStatus) || '-' }}
-                    </NTag>
+                  <NDescriptionsItem label="当前阶段时间状态">
+                    <DictTag dict-code="assessment_stage_timing_status" :value="currentStage?.timingStatus" />
                   </NDescriptionsItem>
-                  <NDescriptionsItem label="开始时间">{{ currentStage?.startedAt || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="培训开始时间">{{ currentStage?.startedAt || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="培训结束时间">{{ currentStage?.endedAt || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="实际学习天数">{{ resolveActualStudyDaysText(currentStage) }}</NDescriptionsItem>
+                  <NDescriptionsItem label="考核时间">{{ currentStage?.assessAt || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem label="培训是否超时">{{ resolveFlagText(currentStage?.overtimeFlag) }}</NDescriptionsItem>
+                  <NDescriptionsItem label="考核是否延迟">{{ resolveFlagText(currentStage?.delayedAssessFlag) }}</NDescriptionsItem>
                   <NDescriptionsItem label="最早考核时间">{{ currentStage?.earliestAssessAt || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="最晚考核时间">{{ currentStage?.latestAssessAt || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="时间说明">{{ currentStage?.timingDescription || '-' }}</NDescriptionsItem>
@@ -559,7 +659,7 @@ async function handlePaperDialogRefresh() {
             </div>
 
             <div class="detail-section">
-              <div class="detail-section__title">阶段与履历</div>
+              <div class="detail-section__title">培训阶段与履历</div>
               <div v-if="stageRecords.length" class="stage-list">
                 <div v-for="(stage, index) in stageRecords" :key="stage.id || stage.stageId || index" class="stage-item">
                   <div class="stage-item__rail">
@@ -568,73 +668,111 @@ async function handlePaperDialogRefresh() {
                   </div>
 
                   <div class="stage-item__body">
-                    <div class="stage-item__header">
+                    <div class="stage-item__header" @click="toggleStageExpanded(stage)">
                       <div class="stage-item__title">
                         <span>{{ stage.stageName || '-' }}</span>
-                        <NTag :bordered="false" :type="getStageStatusType(stage.status)">
-                          {{ stageStatusDict.getLabel(stage.status) || stage.status || '-' }}
-                        </NTag>
-                        <NTag :bordered="false" :type="getTimingTagType(stage.timingStatus)">
-                          {{ timingStatusDict.getLabel(stage.timingStatus) || '-' }}
-                        </NTag>
+                        <DictTag dict-code="assessment_path_stage_status" :value="stage.status" :fallback-label="getStageStatusText(stage.status)" />
+                        <DictTag dict-code="assessment_stage_timing_status" :value="stage.timingStatus" />
                       </div>
                       <div class="stage-item__meta">
-                        <span>结果：{{ getStageResultText(stage) }}</span>
-                        <span>开始：{{ stage.startedAt || '-' }}</span>
-                        <span>结束：{{ stage.endedAt || '-' }}</span>
-                        <span>评级：{{ resolveStageRatingText(stage) }}</span>
+                        <div class="stage-item__meta-tag">
+                          <span class="stage-item__meta-label">执行情况</span>
+                          <NTag size="small" :bordered="false" :type="getStageResultTagType(stage)">
+                            {{ getStageResultText(stage) }}
+                          </NTag>
+                        </div>
+                        <div class="stage-item__meta-tag">
+                          <span class="stage-item__meta-label">持续情况</span>
+                          <NTag size="small" :bordered="false" :type="getStageDurationTagType(stage)">
+                            {{ resolveStageDurationSummary(stage) }}
+                          </NTag>
+                        </div>
+                        <div class="stage-item__meta-tag">
+                          <span class="stage-item__meta-label">培训区间</span>
+                          <NTag size="small" :bordered="false" type="info">
+                            {{ resolveStagePeriodText(stage) }}
+                          </NTag>
+                        </div>
+                        <div class="stage-item__meta-tag">
+                          <span class="stage-item__meta-label">考核日期</span>
+                          <NTag size="small" :bordered="false" type="warning">
+                            {{ formatDateDay(stage.assessAt) }}
+                          </NTag>
+                        </div>
+                        <div class="stage-item__meta-tag">
+                          <span class="stage-item__meta-label">评级</span>
+                          <DictTag
+                            dict-code="assessment_stage_rating"
+                            :value="stage.rating"
+                            :fallback-label="resolveStageRatingText(stage)"
+                            size="small"
+                          />
+                        </div>
+                      </div>
+                      <div class="stage-item__header-actions">
+                        <NButton
+                          v-if="canStartStage(stage)"
+                          size="small"
+                          type="primary"
+                          :loading="actionLoadingStageId === stage.id"
+                          @click.stop="handleStartStage(stage)"
+                        >
+                          开始阶段
+                        </NButton>
+                        <NButton
+                          v-if="canEndStage(stage)"
+                          size="small"
+                          secondary
+                          :loading="actionLoadingStageId === stage.id"
+                          @click.stop="openEndStageDialog(stage)"
+                        >
+                          结束阶段
+                        </NButton>
+                        <NButton quaternary size="small" class="stage-item__toggle" @click.stop="toggleStageExpanded(stage)">
+                          <template #icon>
+                            <NIcon>
+                              <component :is="isStageExpanded(stage) ? ChevronDownOutline : ChevronForwardOutline" />
+                            </NIcon>
+                          </template>
+                          {{ isStageExpanded(stage) ? '收起明细' : '展开明细' }}
+                        </NButton>
                       </div>
                     </div>
 
-                    <div class="stage-item__actions">
-                      <NButton
-                        v-if="canStartStage(stage)"
-                        size="small"
-                        type="primary"
-                        :loading="actionLoadingStageId === stage.id"
-                        @click="handleStartStage(stage)"
-                      >
-                        开始阶段
-                      </NButton>
-                      <NButton
-                        v-if="canEndStage(stage)"
-                        size="small"
-                        secondary
-                        :loading="actionLoadingStageId === stage.id"
-                        @click="openEndStageDialog(stage)"
-                      >
-                        结束阶段
-                      </NButton>
-                      <NButton size="small" quaternary type="primary" @click="openDailyReportDialog(stage, null)">新增日报</NButton>
-                    </div>
-
-                    <div class="stage-summary">
-                      <div class="stage-summary__item">学习时间：{{ resolveStudyDaysText(stage) }}</div>
-                      <div class="stage-summary__item">培训开始：{{ stage.startedAt || '-' }}</div>
-                      <div class="stage-summary__item">培训结束：{{ stage.endedAt || '-' }}</div>
-                      <div class="stage-summary__item">最早考核：{{ stage.earliestAssessAt || '-' }}</div>
-                      <div class="stage-summary__item">最晚考核：{{ stage.latestAssessAt || '-' }}</div>
-                      <div class="stage-summary__item">阶段评级：{{ resolveStageRatingText(stage) }}</div>
-                      <div class="stage-summary__item">自动开始下一阶段：{{ stage.autoStartNext ? '是' : '否' }}</div>
-                      <div class="stage-summary__item">时间说明：{{ stage.timingDescription || '-' }}</div>
-                      <div class="stage-summary__item">
-                        答对题数：{{ stage.latestPaperQuestionTotal == null ? '-' : `${stage.latestPaperCorrectTotal ?? 0} / ${stage.latestPaperQuestionTotal ?? 0}` }}
+                    <div v-show="isStageExpanded(stage)" class="stage-item__detail">
+                      <div class="stage-item__actions">
+                        <NButton size="small" quaternary type="primary" @click="openDailyReportDialog(stage, null)">新增日报</NButton>
                       </div>
-                      <div class="stage-summary__item">最近得分：{{ stage.latestPaperScore ?? '-' }}</div>
-                      <div class="stage-summary__item">结果说明：{{ stage.latestPaperFinalComment || '-' }}</div>
-                    </div>
 
-                    <div class="record-list">
-                      <div class="record-list__title">考核记录履历</div>
+                      <div class="stage-summary">
+                        <div class="stage-summary__item">学习时间：{{ resolveStudyDaysText(stage) }}</div>
+                        <div class="stage-summary__item">培训开始：{{ stage.startedAt || '-' }}</div>
+                        <div class="stage-summary__item">培训结束：{{ stage.endedAt || '-' }}</div>
+                        <div class="stage-summary__item">实际学习天数：{{ resolveActualStudyDaysText(stage) }}</div>
+                        <div class="stage-summary__item">考核时间：{{ stage.assessAt || '-' }}</div>
+                        <div class="stage-summary__item">最早考核：{{ stage.earliestAssessAt || '-' }}</div>
+                        <div class="stage-summary__item">最晚考核：{{ stage.latestAssessAt || '-' }}</div>
+                        <div class="stage-summary__item">培训超时：{{ resolveFlagText(stage.overtimeFlag) }}</div>
+                        <div class="stage-summary__item">考核延迟：{{ resolveFlagText(stage.delayedAssessFlag) }}</div>
+                        <div class="stage-summary__item">阶段评级：{{ resolveStageRatingText(stage) }}</div>
+                        <div class="stage-summary__item">自动开始下一阶段：{{ stage.autoStartNext ? '是' : '否' }}</div>
+                        <div class="stage-summary__item">时间说明：{{ stage.timingDescription || '-' }}</div>
+                        <div class="stage-summary__item">
+                          答对题数：{{ stage.latestPaperQuestionTotal == null ? '-' : `${stage.latestPaperCorrectTotal ?? 0} / ${stage.latestPaperQuestionTotal ?? 0}` }}
+                        </div>
+                        <div class="stage-summary__item">最近得分：{{ stage.latestPaperScore ?? '-' }}</div>
+                        <div class="stage-summary__item">结果说明：{{ stage.latestPaperFinalComment || '-' }}</div>
+                      </div>
+
+                      <div class="record-list">
+                      <div class="record-list__title">阶段考核记录</div>
 
                       <div v-if="stage.records.length" class="record-items">
                         <div v-for="record in stage.records" :key="record.id" class="record-item">
                           <div class="record-item__main">
                             <div class="record-item__title">
                               <span>{{ record.stageName || stage.stageName || '-' }}</span>
-                              <NTag :bordered="false" :type="record.status === 'reviewed' ? 'success' : 'warning'">
-                                {{ paperStatusDict.getLabel(record.status) || '-' }}
-                              </NTag>
+                              <DictTag dict-code="assessment_paper_status" :value="record.status" />
                               <NTag :bordered="false" :type="getPaperPassType(record)">
                                 {{ getRecordResultText(record) }}
                               </NTag>
@@ -657,14 +795,14 @@ async function handlePaperDialogRefresh() {
                               :type="record.status === 'pending_review' ? 'warning' : 'primary'"
                               @click="handleViewPaper(record)"
                             >
-                              {{ record.status === 'pending_review' ? '批阅' : '查看详情' }}
+                              {{ record.status === 'pending_review' ? '阅卷' : '查看考核' }}
                             </NButton>
                           </div>
                         </div>
                       </div>
 
                       <div v-else class="record-list__empty">
-                        <NEmpty description="当前阶段暂无考核记录" />
+                        <NEmpty description="当前阶段暂无阶段考核记录" />
                         <NButton
                           v-if="getStageActionText(stage)"
                           size="small"
@@ -675,9 +813,9 @@ async function handlePaperDialogRefresh() {
                           {{ getStageActionText(stage) }}
                         </NButton>
                       </div>
-                    </div>
+                      </div>
 
-                    <div class="daily-report-section">
+                      <div class="daily-report-section">
                       <div class="daily-report-section__header">
                         <div class="record-list__title">每日报告</div>
                         <NButton size="small" quaternary type="primary" @click="openDailyReportDialog(stage, null)">新增汇报</NButton>
@@ -699,6 +837,7 @@ async function handlePaperDialogRefresh() {
                       </div>
                       <NEmpty v-else description="当前阶段暂无每日报告" />
                     </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -715,7 +854,7 @@ async function handlePaperDialogRefresh() {
         :default-path-id="detail?.id || null"
         :default-path-stage-id="assessStage?.id || currentStage?.id || null"
         :default-path-stage-name="assessStage?.stageName || currentStage?.stageName || detail?.currentStageName || null"
-        :default-path-stage-status="stageStatusDict.getLabel(assessStage?.status) || assessStage?.status || null"
+        :default-path-stage-status="assessStage?.status || currentStage?.status || null"
         :default-template-name="detail?.templateName || null"
         :lock-current-stage="true"
         @close="handleAssessClose"
@@ -733,7 +872,7 @@ async function handlePaperDialogRefresh() {
         <div class="stage-dialog-form">
           <div class="stage-dialog-form__item">
             <div class="stage-dialog-form__label">阶段评级</div>
-            <NSelect v-model:value="stageEndForm.rating" :options="stageRatingOptions" />
+            <DictSelect v-model:model-value="stageEndForm.rating" dict-code="assessment_stage_rating" />
           </div>
           <div class="stage-dialog-form__item">
             <div class="stage-dialog-form__label">自动开始下一阶段</div>
@@ -920,10 +1059,13 @@ html.dark .stage-item__body {
 }
 
 .stage-item__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 12px;
   margin-bottom: 12px;
+  cursor: pointer;
 }
 
 .stage-item__title {
@@ -931,24 +1073,61 @@ html.dark .stage-item__body {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-size: 16px;
   font-weight: 600;
+  line-height: 1.2;
+}
+
+.stage-item__toggle {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.stage-item__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .stage-item__meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 12px 16px;
+  min-width: 0;
+}
+
+.stage-item__meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  white-space: nowrap;
+}
+
+.stage-item__meta-label {
+  min-width: 56px;
   color: var(--n-text-color-3);
   font-size: 13px;
+  line-height: 1;
+  text-align: right;
+}
+
+.stage-item__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .stage-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 16px;
 }
 
 .stage-summary__item {
@@ -1018,7 +1197,37 @@ html.dark .stage-item__body {
 }
 
 .record-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.stage-item__actions,
+.daily-report-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stage-item__actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+.stage-item__actions :deep(.n-button),
+.record-item__actions :deep(.n-button),
+.daily-report-item__actions :deep(.n-button),
+.record-list__empty :deep(.n-button),
+.daily-report-section__header :deep(.n-button) {
+  min-width: 64px;
+  height: 28px !important;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
 }
 
 @media (width <= 960px) {
@@ -1032,8 +1241,33 @@ html.dark .stage-item__body {
     align-items: flex-start;
   }
 
+  .stage-item__header {
+    display: flex;
+    gap: 10px;
+  }
+
+  .stage-item__header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .stage-item__meta {
     justify-content: flex-start;
+  }
+
+  .stage-item__meta-tag {
+    width: auto;
+  }
+
+  .stage-item__meta-label {
+    min-width: 64px;
+    text-align: left;
+  }
+
+  .stage-item__actions {
+    flex-wrap: wrap;
+    overflow: visible;
   }
 
   .stage-summary {

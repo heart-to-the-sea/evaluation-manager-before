@@ -81,10 +81,12 @@ export interface DictBo {
 export interface DictValuesVo {
   id?: string;
   dictId?: string;
-  dictCode?: string;
-  label?: string;
-  value?: string;
-  sort?: number;
+    dictCode?: string;
+    label?: string;
+    value?: string;
+    customColor?: string;
+    className?: string;
+    sort?: number;
   status: string;
   statusLabel?: string;
   createdAt?: string;
@@ -417,6 +419,10 @@ export interface AssessmentInternPathStageVo {
   latestPaperReviewedAt?: string;
   startedAt?: string;
   endedAt?: string;
+  studyDurationDays?: number;
+  assessAt?: string;
+  overtimeFlag?: boolean;
+  delayedAssessFlag?: boolean;
   rating?: string;
   autoStartNext?: boolean;
   earliestAssessAt?: string;

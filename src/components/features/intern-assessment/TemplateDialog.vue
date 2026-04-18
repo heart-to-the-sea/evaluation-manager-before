@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { NButton, NDynamicInput, NForm, NFormItem, NGrid, NGi, NInput, NInputNumber, NModal, NSelect, NSpin, NTag } from 'naive-ui';
 import type { FormInst, FormRules, SelectOption } from 'naive-ui';
+import DictSelect from '@/components/common/DictSelect.vue';
 import { fetchAssessmentTemplateAdd, fetchAssessmentTemplateUpdate } from '@/service/api';
 import type { AssessmentPathTemplateBo, AssessmentPathTemplateVo, AssessmentStageVo } from '@/types/app';
 
@@ -51,11 +52,6 @@ const emit = defineEmits<{
 const formRef = ref<FormInst | null>(null);
 const submitting = ref(false);
 const isEdit = computed(() => Boolean(props.data?.id));
-
-const statusOptions: SelectOption[] = [
-  { label: TEXT.enabled, value: '1' },
-  { label: TEXT.disabled, value: '0' }
-];
 
 const stageOptions = computed<SelectOption[]>(() =>
   props.stageList.map(item => ({
@@ -198,7 +194,7 @@ async function handleSubmit() {
           </NGi>
           <NGi>
             <NFormItem :label="TEXT.templateStatus" path="status">
-              <NSelect v-model:value="formData.status" :options="statusOptions" :placeholder="TEXT.requiredStatus" />
+              <DictSelect v-model:model-value="formData.status" dict-code="assessment_enable_status" :placeholder="TEXT.requiredStatus" />
             </NFormItem>
           </NGi>
           <NGi span="2">
@@ -263,7 +259,7 @@ async function handleSubmit() {
     </NSpin>
 
     <template #action>
-      <div class="flex justify-end gap-12px">
+      <div class="em-dialog-actions">
         <NButton @click="handleClose">{{ TEXT.cancel }}</NButton>
         <NButton type="primary" @click="handleSubmit">{{ TEXT.save }}</NButton>
       </div>

@@ -1,24 +1,41 @@
 import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue';
 import { fetchDictValuesListByCode } from '@/service/api';
 
+export type DictTagType = 'default' | 'primary' | 'info' | 'success' | 'warning' | 'error';
+
+export interface DictRawOption {
+  id?: string;
+  dictId?: string;
+  dictCode?: string;
+  label?: string;
+  value?: string;
+  customColor?: string;
+  className?: string;
+  sort?: number;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface DictOption {
   label: string;
   value: string;
-  raw: {
-    id?: string;
-    dictId?: string;
-    dictCode?: string;
-    label?: string;
-    value?: string;
-    sort?: number;
-    status?: string;
-    createdAt?: string;
-    updatedAt?: string;
-  };
+  raw: DictRawOption;
 }
 
 const dictOptionsCache = new Map<string, DictOption[]>();
 const dictPendingCache = new Map<string, Promise<DictOption[]>>();
+
+export function clearDictCache(dictCode?: string) {
+  if (dictCode) {
+    dictOptionsCache.delete(dictCode);
+    dictPendingCache.delete(dictCode);
+    return;
+  }
+
+  dictOptionsCache.clear();
+  dictPendingCache.clear();
+}
 
 async function loadDictOptions(dictCode: string, force = false) {
   if (!dictCode) {
@@ -87,6 +104,22 @@ export function useDict(dictCode: MaybeRefOrGetter<string | undefined | null>) {
     return item?.label || String(value);
   }
 
+  function getOption(value?: string | number | null) {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+
+    return optionMap.value.get(String(value));
+  }
+
+  function getClassName(value?: string | number | null) {
+    return getOption(value)?.raw?.className || '';
+  }
+
+  function getCustomColor(value?: string | number | null) {
+    return getOption(value)?.raw?.customColor || '';
+  }
+
   watch(
     () => toValue(dictCode),
     () => {
@@ -100,6 +133,9 @@ export function useDict(dictCode: MaybeRefOrGetter<string | undefined | null>) {
     loading,
     refresh,
     getLabel,
+    getOption,
+    getClassName,
+    getCustomColor,
     optionMap
   };
 }

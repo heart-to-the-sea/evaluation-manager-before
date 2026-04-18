@@ -70,11 +70,18 @@ const emit = defineEmits<{
 .handler-tools,
 .search-box-wrapper {
   :deep(.n-button) {
-    height: 32px !important;
-    padding: 0 14px !important;
+    height: 34px !important;
+    padding: 0 18px !important;
     border-radius: 6px !important;
     font-size: 13px !important;
   }
+}
+
+.handler-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .handler-tools {

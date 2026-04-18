@@ -81,8 +81,16 @@ const hasHeader = computed(() => Boolean(slots.header || slots.title || slots.ac
 .info-page-layout__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.info-page-layout__actions :deep(.n-button) {
+  height: 34px !important;
+  padding: 0 18px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
 }
 
 .info-page-layout__content {

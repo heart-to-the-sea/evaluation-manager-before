@@ -1,12 +1,12 @@
 <script setup lang="tsx">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
-import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NSelect, NTag } from 'naive-ui';
+import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace } from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
+import DictTag from '@/components/common/DictTag.vue';
 import QuestionDialog from '@/components/features/intern-assessment/QuestionDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchAssessmentQuestionDelete, fetchAssessmentQuestionList, fetchAssessmentStageList } from '@/service/api';
 import type { AssessmentQuestionVo } from '@/types/app';
 
@@ -31,14 +31,6 @@ const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentQuestionVo | null>(null);
 const stageOptions = ref<SelectOption[]>([]);
-
-const statusOptions = [
-  { label: '启用', value: '1' },
-  { label: '禁用', value: '0' }
-];
-
-const questionTypeDict = useDict('assessment_question_type');
-const difficultyDict = useDict('assessment_question_difficulty');
 
 const pagination = reactive({
   page: 1,
@@ -71,14 +63,14 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'questionType',
     width: 110,
     align: 'center',
-    render: row => h(NTag, { bordered: false, type: 'info' }, { default: () => questionTypeDict.getLabel(row.questionType) || '-' })
+    render: row => <DictTag dictCode="assessment_question_type" value={row.questionType} />
   },
   {
     title: '难度',
     key: 'difficulty',
     width: 110,
     align: 'center',
-    render: row => h(NTag, { bordered: false, type: 'warning' }, { default: () => difficultyDict.getLabel(row.difficulty) || '-' })
+    render: row => <DictTag dictCode="assessment_question_difficulty" value={row.difficulty} />
   },
   { title: '知识点', key: 'knowledgePoint', width: 160, render: row => row.knowledgePoint || '-' },
   { title: '题干', key: 'stem', minWidth: 320, render: row => row.stem || '-' },
@@ -88,7 +80,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'status',
     width: 90,
     align: 'center',
-    render: row => h(NTag, { bordered: false, type: row.status === '1' ? 'success' : 'error' }, { default: () => (row.status === '1' ? '启用' : '禁用') })
+    render: row => <DictTag dictCode="assessment_enable_status" value={row.status} />
   },
   { title: '更新时间', key: 'updatedAt', width: 180 },
   {
@@ -221,7 +213,7 @@ async function handleDialogClose(submitted = false) {
             <NSelect v-model:value="searchParams.stageId" :options="stageOptions" clearable placeholder="所属阶段" style="width: 200px" />
             <DictSelect v-model:model-value="searchParams.questionType" dict-code="assessment_question_type" clearable placeholder="题型" style="width: 140px" />
             <DictSelect v-model:model-value="searchParams.difficulty" dict-code="assessment_question_difficulty" clearable placeholder="难度" style="width: 140px" />
-            <NSelect v-model:value="searchParams.status" :options="statusOptions" clearable placeholder="状态" style="width: 140px" />
+            <DictSelect v-model:model-value="searchParams.status" dict-code="assessment_enable_status" clearable placeholder="状态" style="width: 140px" />
             <NInput v-model:value="searchParams.stem" clearable placeholder="请输入题干关键词" style="width: 220px" @keyup.enter="handleSearch" />
             <NButton type="primary" @click="handleSearch">查询</NButton>
             <NButton @click="handleReset">重置</NButton>

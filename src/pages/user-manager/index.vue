@@ -4,9 +4,9 @@ import { AddCircle } from '@vicons/ionicons5';
 import { NButton, NDataTable, NDatePicker, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NTag, NTreeSelect } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
+import DictTag from '@/components/common/DictTag.vue';
 import AppendDialog from '@/components/features/user/AppendDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchDepartmentTreeList, fetchUserDelete, fetchUserList } from '@/service/api';
 import type { DepartmentVo, UserVo } from '@/types/app';
 
@@ -65,12 +65,6 @@ const pagination = reactive({
   }
 });
 
-const genderDict = useDict('employee_gender');
-const userTypeDict = useDict('user_type');
-const jobStatusDict = useDict('employee_job_status');
-const workStatusDict = useDict('employee_work_status');
-const accountStatusDict = useDict('employee_account_status');
-const positionDict = useDict('employee_position');
 const departmentOptions = computed(() => buildDepartmentOptions(departmentTree.value));
 
 const columns = computed<DataTableColumns<RowData>>(() => [
@@ -89,18 +83,23 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'userType',
     width: 110,
     align: 'center',
-    render: row => renderTag(row.userTypeLabel || userTypeDict.getLabel(row.userType), row.userType === 'intern' ? 'warning' : 'info')
+    render: row => <DictTag dictCode="user_type" value={row.userType} fallbackLabel={row.userTypeLabel || '-'} />
   },
   {
     title: '性别',
     key: 'gender',
     width: 90,
     align: 'center',
-    render: row => renderTag(genderDict.getLabel(row.gender), 'info')
+    render: row => <DictTag dictCode="employee_gender" value={row.gender} />
   },
   { title: '手机号', key: 'phone', minWidth: 140 },
   { title: '所属部门', key: 'departmentName', minWidth: 140 },
-  { title: '岗位名称', key: 'positionName', minWidth: 140, render: row => row.positionNameLabel || positionDict.getLabel(row.positionName) || '-' },
+  {
+    title: '岗位名称',
+    key: 'positionName',
+    minWidth: 140,
+    render: row => <DictTag dictCode="employee_position" value={row.positionName} fallbackLabel={row.positionNameLabel || '-'} />
+  },
   {
     title: '负责人',
     key: 'leaderFlag',
@@ -114,21 +113,21 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'jobStatus',
     width: 100,
     align: 'center',
-    render: row => renderTag(jobStatusDict.getLabel(row.jobStatus), row.jobStatus === '1' ? 'success' : 'warning')
+    render: row => <DictTag dictCode="employee_job_status" value={row.jobStatus} />
   },
   {
     title: '工作状态',
     key: 'workStatus',
     width: 100,
     align: 'center',
-    render: row => renderTag(workStatusDict.getLabel(row.workStatus), 'info')
+    render: row => <DictTag dictCode="employee_work_status" value={row.workStatus} />
   },
   {
     title: '账号状态',
     key: 'accountStatus',
     width: 100,
     align: 'center',
-    render: row => renderTag(accountStatusDict.getLabel(row.accountStatus), row.accountStatus === '1' ? 'success' : 'error')
+    render: row => <DictTag dictCode="employee_account_status" value={row.accountStatus} />
   },
   { title: '创建时间', key: 'createdAt', width: 180 },
   {

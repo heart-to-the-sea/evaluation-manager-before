@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { NButton, NForm, NFormItem, NModal, NSelect, NSpin, NTag } from 'naive-ui';
+import { NButton, NForm, NFormItem, NModal, NSelect, NSpin } from 'naive-ui';
 import type { FormInst, FormRules, SelectOption } from 'naive-ui';
+import DictTag from '@/components/common/DictTag.vue';
 import { useDict } from '@/composables/use-dict';
 import { fetchAssessmentPaperCreate, fetchAssessmentPathById, fetchAssessmentPathList } from '@/service/api';
 import type { AssessmentInternPathStageVo, AssessmentPaperCreateBo, AssessmentInternPathVo, UserOptionVo } from '@/types/app';
@@ -32,11 +33,12 @@ const emit = defineEmits<{
   close: [submitted?: boolean, paperId?: string];
 }>();
 
+const pathStageStatusDict = useDict('assessment_path_stage_status');
+
 const formRef = ref<FormInst | null>(null);
 const loading = ref(false);
 const paths = ref<AssessmentInternPathVo[]>([]);
 const stageOptions = ref<SelectOption[]>([]);
-const timingStatusDict = useDict('assessment_stage_timing_status');
 const currentStageInfo = ref({
   templateName: '',
   stageName: '',
@@ -57,7 +59,7 @@ const formData = ref<AssessmentPaperCreateBo>({
 
 const rules: FormRules = {
   userId: [{ required: true, message: '请选择实习生', trigger: ['change'] }],
-  pathId: [{ required: true, message: '请选择考核路径', trigger: ['change'] }],
+  pathId: [{ required: true, message: '请选择培训计划', trigger: ['change'] }],
   pathStageId: [
     {
       trigger: ['change'],
@@ -78,10 +80,15 @@ const userOptions = computed<SelectOption[]>(() =>
 
 const pathOptions = computed<SelectOption[]>(() =>
   paths.value.map(item => ({
-    label: `${item.templateName || '未命名模板'} / ${item.currentStageName || '未开始'}`,
+    label: `${item.templateName || '未命名模板'} / ${item.currentStageName || '未开始培训'}`,
     value: item.id || ''
   }))
 );
+
+function getPathStageStatusLabel(status?: string | null) {
+  if (!status) return '-';
+  return pathStageStatusDict.getLabel(status) || status;
+}
 
 watch(
   () => props.show,
@@ -144,19 +151,21 @@ async function loadPathStages(pathId: string) {
   stageOptions.value = (data.stages || [])
     .filter(item => Boolean(item.id))
     .map(item => ({
-      label: `${item.stageName || '-'} / ${item.status || '-'}`,
+      label: `${item.stageName || '-'} / ${getPathStageStatusLabel(item.status)}`,
       value: item.id || ''
     }));
 
+  const currentStage =
+    (data.stages || []).find(item => item.id === props.defaultPathStageId)
+    || (data.stages || []).find(item => item.stageId === data.currentStageId)
+    || (data.stages || []).find(item => ['in_progress', 'failed', 'pending'].includes(item.status || ''))
+    || (data.stages || []).find(item => Boolean(item.id))
+    || null;
+
+  formData.value.pathId = data.id || formData.value.pathId;
+  formData.value.pathStageId = currentStage?.id || props.defaultPathStageId || undefined;
+
   if (props.lockCurrentStage) {
-    const currentStage =
-      (data.stages || []).find(item => item.id === props.defaultPathStageId)
-      || (data.stages || []).find(item => item.stageId === data.currentStageId)
-      || null;
-
-    formData.value.pathId = data.id || formData.value.pathId;
-    formData.value.pathStageId = currentStage?.id || props.defaultPathStageId || undefined;
-
     currentStageInfo.value = {
       templateName: data.templateName || props.defaultTemplateName || '',
       stageName: currentStage?.stageName || data.currentStageName || props.defaultPathStageName || '',
@@ -177,14 +186,6 @@ function resolveStudyDaysText(stage?: AssessmentInternPathStageVo | null) {
   if (stage.minStudyDays != null && stage.maxStudyDays != null) return `${stage.minStudyDays}-${stage.maxStudyDays}天`;
   if (stage.minStudyDays != null) return `不少于${stage.minStudyDays}天`;
   return `不超过${stage.maxStudyDays}天`;
-}
-
-function getTimingTagType(status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (status === 'assessed_on_time') return 'success';
-  if (status === 'assessable' || status === 'assessed_early') return 'warning';
-  if (status === 'overdue' || status === 'assessed_overdue') return 'error';
-  if (status === 'studying') return 'info';
-  return 'default';
 }
 
 async function handleUserChange(value: string | null) {
@@ -233,7 +234,7 @@ async function handleSubmit() {
     const { data, error } = await fetchAssessmentPaperCreate(payload);
     if (error) return;
 
-    window.$message?.success('考核试卷生成成功');
+    window.$message?.success('阶段考核已生成');
     emit('close', true, data || undefined);
   } finally {
     loading.value = false;
@@ -245,7 +246,7 @@ async function handleSubmit() {
   <NModal
     :show="show"
     preset="card"
-    title="生成考核试卷"
+    title="发起阶段考核"
     :style="{ width: '640px' }"
     :mask-closable="false"
     @update:show="value => !value && handleClose()"
@@ -263,11 +264,11 @@ async function handleSubmit() {
           />
         </NFormItem>
 
-        <NFormItem label="考核路径" path="pathId">
+        <NFormItem label="培训计划" path="pathId">
           <NSelect
             v-model:value="formData.pathId"
             :options="pathOptions"
-            placeholder="请选择考核路径"
+            placeholder="请选择培训计划"
             :disabled="lockCurrentStage"
             @update:value="handlePathChange"
           />
@@ -283,19 +284,20 @@ async function handleSubmit() {
         </NFormItem>
 
         <div v-if="lockCurrentStage" class="current-stage-box">
-          <div class="current-stage-box__title">当前考评信息</div>
-          <div class="current-stage-box__item">路径模板：{{ currentStageInfo.templateName || '-' }}</div>
-          <div class="current-stage-box__item">当前阶段：{{ currentStageInfo.stageName || '-' }}</div>
-          <div class="current-stage-box__item">阶段状态：{{ currentStageInfo.stageStatus || '-' }}</div>
+          <div class="current-stage-box__title">当前阶段考核信息</div>
+          <div class="current-stage-box__item">培训模板：{{ currentStageInfo.templateName || '-' }}</div>
+          <div class="current-stage-box__item">当前培训阶段：{{ currentStageInfo.stageName || '-' }}</div>
+          <div class="current-stage-box__item current-stage-box__item--inline">
+            <span>培训阶段状态：</span>
+            <DictTag dict-code="assessment_path_stage_status" :value="currentStageInfo.stageStatus" />
+          </div>
           <div class="current-stage-box__item">学习时间：{{ currentStageInfo.studyDays || '-' }}</div>
-          <div class="current-stage-box__item">开始时间：{{ currentStageInfo.startedAt || '-' }}</div>
+          <div class="current-stage-box__item">培训开始时间：{{ currentStageInfo.startedAt || '-' }}</div>
           <div class="current-stage-box__item">最早考核：{{ currentStageInfo.earliestAssessAt || '-' }}</div>
           <div class="current-stage-box__item">最晚考核：{{ currentStageInfo.latestAssessAt || '-' }}</div>
           <div class="current-stage-box__item current-stage-box__item--inline">
             <span>时间状态：</span>
-            <NTag size="small" :bordered="false" :type="getTimingTagType(currentStageInfo.timingStatus)">
-              {{ timingStatusDict.getLabel(currentStageInfo.timingStatus) || currentStageInfo.timingStatus || '-' }}
-            </NTag>
+            <DictTag dict-code="assessment_stage_timing_status" :value="currentStageInfo.timingStatus" :fallback-label="currentStageInfo.timingStatus || '-'" />
           </div>
           <div class="current-stage-box__item">时间说明：{{ currentStageInfo.timingDescription || '-' }}</div>
           <div class="current-stage-box__tip">说明：学习期内允许提前考核；到达建议时间或超时后，系统会自动标记。</div>
@@ -304,9 +306,9 @@ async function handleSubmit() {
     </NSpin>
 
     <template #action>
-      <div class="flex justify-end gap-12px">
+      <div class="em-dialog-actions">
         <NButton @click="handleClose">取消</NButton>
-        <NButton type="primary" @click="handleSubmit">开始考核</NButton>
+        <NButton type="primary" @click="handleSubmit">发起考核</NButton>
       </div>
     </template>
   </NModal>

@@ -2,19 +2,17 @@
 import { computed, h, onMounted, ref } from 'vue';
 import { NCard, NDataTable, NGrid, NGi, NStatistic, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
+import DictTag from '@/components/common/DictTag.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchAssessmentReportOverview } from '@/service/api';
 import type { AssessmentReportOverviewVo, AssessmentReportQuestionStatVo, AssessmentReportStageStatVo } from '@/types/app';
 
 definePageMeta({
-  title: '考核报表'
+  title: '培训报表'
 });
 
 const loading = ref(false);
 const overview = ref<AssessmentReportOverviewVo | null>(null);
-
-const questionTypeDict = useDict('assessment_question_type');
 
 const stageColumns = computed<DataTableColumns<AssessmentReportStageStatVo>>(() => [
   { title: '阶段名称', key: 'stageName', minWidth: 180, render: row => row.stageName || '-' },
@@ -31,7 +29,7 @@ const stageColumns = computed<DataTableColumns<AssessmentReportStageStatVo>>(() 
 
 const questionColumns = computed<DataTableColumns<AssessmentReportQuestionStatVo>>(() => [
   { title: '题干', key: 'stem', minWidth: 320, render: row => row.stem || '-' },
-  { title: '题型', key: 'questionType', width: 120, render: row => questionTypeDict.getLabel(row.questionType) || '-' },
+  { title: '题型', key: 'questionType', width: 120, render: row => <DictTag dictCode="assessment_question_type" value={row.questionType} /> },
   { title: '作答次数', key: 'totalCount', width: 120, align: 'center', render: row => String(row.totalCount ?? 0) },
   { title: '答对次数', key: 'correctCount', width: 120, align: 'center', render: row => String(row.correctCount ?? 0) },
   {

@@ -254,7 +254,7 @@ async function handleSubmit() {
     </NForm>
 
     <template #footer>
-      <NSpace justify="end">
+      <NSpace justify="end" :size="16">
         <NButton @click="handleClose">取消</NButton>
         <NButton type="primary" :loading="submitting" @click="handleSubmit">确定</NButton>
       </NSpace>

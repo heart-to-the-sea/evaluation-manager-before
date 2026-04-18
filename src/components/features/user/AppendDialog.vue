@@ -324,7 +324,7 @@ async function handleSubmit() {
     </NSpin>
 
     <template #action>
-      <div class="flex justify-end gap-12px">
+      <div class="em-dialog-actions">
         <NButton @click="handleClose">取消</NButton>
         <NButton type="primary" @click="handleSubmit">保存</NButton>
       </div>

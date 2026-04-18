@@ -1,8 +1,11 @@
 <script setup lang="tsx">
-import { NButton, NDataTable, NInput, NModal, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui';
+import { NButton, NColorPicker, NDataTable, NInput, NModal, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import type { DictValuesVo } from '@/types/app';
 import { fetchDictValuesAdd, fetchDictValuesBatchSave, fetchDictValuesDelete, fetchDictValuesListByCode, fetchDictValuesUpdate } from '@/service/api';
+import DictTag from '@/components/common/DictTag.vue';
+import { dictColorPresetValues } from '@/constants/dict';
+import { clearDictCache } from '@/composables/use-dict';
 
 interface RowData extends DictValuesVo {
   key: string;
@@ -25,6 +28,31 @@ const submitting = ref(false);
 const snapshotMap = new Map<string, RowData>();
 
 const editedRows = computed(() => dataList.value.filter(item => item.isNew || item.isEditing));
+
+function renderColorSwatch(color?: string | null, emptyText = '-') {
+  if (!color) {
+    return <span class="dict-color-display__empty">{emptyText}</span>;
+  }
+
+  return (
+    <span class="dict-color-display">
+      <span class="dict-color-display__swatch" style={{ backgroundColor: color }}></span>
+      <span class="dict-color-display__text">{color}</span>
+    </span>
+  );
+}
+
+function renderColorEditor(row: RowData) {
+  return (
+    <NColorPicker
+      value={row.customColor || ''}
+      showAlpha={false}
+      modes={['hex']}
+      swatches={dictColorPresetValues}
+      onUpdateValue={value => (row.customColor = String(value || ''))}
+    />
+  );
+}
 
 const columns = ref<DataTableColumns<RowData>>([
   { title: '#', key: 'index', width: 60, render: (_, index) => String(index + 1) },
@@ -49,6 +77,42 @@ const columns = ref<DataTableColumns<RowData>>([
       ) : (
         row.value || '-'
       )
+  },
+  {
+    title: '自定义颜色',
+    key: 'customColor',
+    minWidth: 240,
+    render: row =>
+      row.isNew || row.isEditing ? (
+        renderColorEditor(row)
+      ) : (
+        renderColorSwatch(row.customColor)
+      )
+  },
+  {
+    title: '样式类名',
+    key: 'className',
+    minWidth: 140,
+    render: row =>
+      row.isNew || row.isEditing ? (
+        <NInput value={row.className || ''} placeholder="样式类名" onUpdateValue={value => (row.className = value)} />
+      ) : (
+        row.className || '-'
+      )
+  },
+  {
+    title: '预览',
+    key: 'preview',
+    minWidth: 120,
+    render: row => (
+      <DictTag
+        dictCode={props.dictCode}
+        value={row.value}
+        fallbackLabel={row.label || '-'}
+        customColor={row.customColor || ''}
+        className={row.className || ''}
+      />
+    )
   },
   {
     title: '排序',
@@ -150,6 +214,8 @@ function handleAdd() {
     dictId: props.dictId,
     label: '',
     value: '',
+    customColor: '',
+    className: '',
     sort: dataList.value.length + 1,
     status: 1,
     isNew: true
@@ -170,6 +236,8 @@ async function handleSave(row: RowData) {
       dictCode: props.dictCode,
       label: row.label,
       value: row.value,
+      customColor: row.customColor || undefined,
+      className: row.className || '',
       sort: row.sort,
       status: row.status
     };
@@ -184,6 +252,7 @@ async function handleSave(row: RowData) {
       window.$message?.success('字典值更新成功');
     }
 
+    clearDictCache(props.dictCode);
     await loadData();
   } finally {
     submitting.value = false;
@@ -201,6 +270,7 @@ async function handleDelete(row: RowData) {
   }
 
   window.$message?.success('字典值删除成功');
+  clearDictCache(props.dictCode);
   await loadData();
 }
 
@@ -223,6 +293,8 @@ async function handleBatchSave() {
         dictCode: props.dictCode,
         label: item.label,
         value: item.value,
+        customColor: item.customColor || undefined,
+        className: item.className || '',
         sort: item.sort,
         status: item.status
       }))
@@ -233,6 +305,7 @@ async function handleBatchSave() {
     }
 
     window.$message?.success('批量保存成功');
+    clearDictCache(props.dictCode);
     await loadData();
   } finally {
     submitting.value = false;
@@ -241,7 +314,8 @@ async function handleBatchSave() {
 </script>
 
 <template>
-  <NModal :show="show" preset="card" title="字典值详情" :style="{ width: '980px' }" :mask-closable="false" @update:show="value => !value && emit('close')">
+  <NModal :show="show" preset="card" title="字典值详情" :style="{ width: '1240px', maxWidth: 'calc(100vw - 32px)' }"
+    :mask-closable="false" @update:show="value => !value && emit('close')">
     <NSpace vertical>
       <NSpace justify="space-between">
         <div class="text-14px text-#666">字典编码：{{ dictCode }}</div>
@@ -255,9 +329,96 @@ async function handleBatchSave() {
     </NSpace>
 
     <template #footer>
-      <NSpace justify="end">
+      <NSpace justify="end" :size="16">
         <NButton @click="emit('close')">关闭</NButton>
       </NSpace>
     </template>
   </NModal>
 </template>
+
+<style scoped lang="scss">
+.dict-color-editor,
+.dict-color-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dict-color-editor {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.dict-color-editor__suffix {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.dict-color-display__swatch {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid rgb(var(--border-color));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 20%),
+    0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.dict-color-display__text {
+  min-width: 0;
+  color: var(--n-text-color-2);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.dict-color-display__empty {
+  color: var(--n-text-color-3);
+  font-size: 12px;
+}
+
+.dict-color-preset-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.dict-color-preset-btn {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dict-color-preset-btn__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--border-color));
+  box-shadow: 0 0 0 2px transparent;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.dict-color-preset-btn:hover .dict-color-preset-btn__swatch {
+  transform: translateY(-1px);
+}
+
+.dict-color-preset-btn.is-active .dict-color-preset-btn__swatch {
+  box-shadow: 0 0 0 2px rgb(var(--primary-color) / 28%);
+}
+
+:deep(.dict-color-editor__picker .n-color-picker-trigger) {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 90%);
+}
+
+:deep(.dict-color-editor__picker .n-color-picker-trigger__fill) {
+  border-radius: 5px;
+}
+</style>

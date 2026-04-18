@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { ArrowBackOutline } from '@vicons/ionicons5';
-import { NButton, NDescriptions, NDescriptionsItem, NEmpty, NIcon, NSpin, NTag } from 'naive-ui';
+import { NButton, NDescriptions, NDescriptionsItem, NEmpty, NIcon, NSpin } from 'naive-ui';
+import DictTag from '@/components/common/DictTag.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchDepartmentById, fetchDepartmentTreeList } from '@/service/api';
 import type { DepartmentVo } from '@/types/app';
 
@@ -16,8 +16,6 @@ const route = useRoute();
 const loading = ref(false);
 const detail = ref<DepartmentVo | null>(null);
 const departmentMap = ref<Record<string, DepartmentVo>>({});
-
-const departmentStatusDict = useDict('department_status');
 
 const departmentId = computed(() => String(route.params.id || ''));
 const parentName = computed(() => {
@@ -83,9 +81,6 @@ async function loadDetail() {
   }
 }
 
-function getStatusType(status?: string) {
-  return status === '1' ? 'success' : 'error';
-}
 </script>
 
 <template>
@@ -111,9 +106,7 @@ function getStatusType(status?: string) {
           <NDescriptionsItem label="负责人">{{ detail.leaderName || '-' }}</NDescriptionsItem>
           <NDescriptionsItem label="排序">{{ detail.sort ?? 0 }}</NDescriptionsItem>
           <NDescriptionsItem label="部门状态">
-            <NTag :bordered="false" :type="getStatusType(detail.status)">
-              {{ departmentStatusDict.getLabel(detail.status) || '-' }}
-            </NTag>
+            <DictTag dict-code="department_status" :value="detail.status" />
           </NDescriptionsItem>
           <NDescriptionsItem label="创建时间">{{ detail.createdAt || '-' }}</NDescriptionsItem>
           <NDescriptionsItem label="更新时间">{{ detail.updatedAt || '-' }}</NDescriptionsItem>

@@ -50,25 +50,25 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.user-manager.info'
   },
   {
-    label: '实习生考核',
+    label: '培训考核',
     routeKey: 'intern_assessment',
     routePath: '/intern-assessment',
     component: 'layout.base'
   },
   {
-    label: '考核管理',
+    label: '培训管理',
     routeKey: 'intern_assessment_intern',
     routePath: '/intern-assessment/intern',
     component: 'view.intern-assessment.intern.index'
   },
   {
-    label: '阶段管理',
+    label: '培训阶段',
     routeKey: 'intern_assessment_stage',
     routePath: '/intern-assessment/stage',
     component: 'view.intern-assessment.stage.index'
   },
   {
-    label: '路径模板',
+    label: '培训模板',
     routeKey: 'intern_assessment_template',
     routePath: '/intern-assessment/template',
     component: 'view.intern-assessment.template.index'
@@ -80,7 +80,7 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.intern-assessment.question.index'
   },
   {
-    label: '考核记录',
+    label: '阶段考核',
     routeKey: 'intern_assessment_paper',
     routePath: '/intern-assessment/paper',
     component: 'view.intern-assessment.paper.index'
@@ -92,7 +92,7 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.intern-assessment.paper.info'
   },
   {
-    label: '考核报表',
+    label: '培训报表',
     routeKey: 'intern_assessment_report',
     routePath: '/intern-assessment/report',
     component: 'view.intern-assessment.report.index'

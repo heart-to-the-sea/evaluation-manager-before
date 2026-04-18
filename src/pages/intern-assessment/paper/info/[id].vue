@@ -12,9 +12,9 @@ import {
   NSwitch,
   NTag
 } from 'naive-ui';
+import DictTag from '@/components/common/DictTag.vue';
 import DictSelect from '@/components/common/DictSelect.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
-import { useDict } from '@/composables/use-dict';
 import { fetchAssessmentPaperById, fetchAssessmentPaperRegenerate, fetchAssessmentPaperReview } from '@/service/api';
 import type { AssessmentPaperReviewBo, AssessmentPaperVo } from '@/types/app';
 
@@ -42,10 +42,6 @@ const detail = ref<ReviewPaperDetail | null>(null);
 const passFlag = ref(false);
 const finalComment = ref('');
 
-const paperStatusDict = useDict('assessment_paper_status');
-const questionTypeDict = useDict('assessment_question_type');
-const difficultyDict = useDict('assessment_question_difficulty');
-const reviewResultDict = useDict('assessment_review_result');
 const detailDescriptionLabelStyle = { width: '108px' };
 const detailDescriptionContentStyle = { minWidth: '0' };
 
@@ -121,7 +117,7 @@ async function submitReview(submitFlag: boolean) {
       return;
     }
 
-    window.$message?.success(submitFlag ? '试卷已提交批阅' : '试卷草稿已保存');
+    window.$message?.success(submitFlag ? '阶段考核已提交批阅' : '阶段考核草稿已保存');
     await loadDetail();
   } finally {
     if (submitFlag) {
@@ -159,7 +155,7 @@ function handleRegenerate() {
           return;
         }
 
-        window.$message?.success('考核试卷已重新生成');
+        window.$message?.success('阶段考核试卷已重新生成');
         if (data && data !== currentPaperId) {
           await navigateTo(`/intern-assessment/paper/info/${data}`);
           return;
@@ -210,11 +206,9 @@ function toggleQuestionPanel(item: ReviewQuestionItem, field: 'showStem' | 'show
                 :content-style="detailDescriptionContentStyle"
               >
                 <NDescriptionsItem label="实习生">{{ detail.userName || '-' }}</NDescriptionsItem>
-                <NDescriptionsItem label="考核阶段">{{ detail.stageName || '-' }}</NDescriptionsItem>
+                <NDescriptionsItem label="培训阶段">{{ detail.stageName || '-' }}</NDescriptionsItem>
                 <NDescriptionsItem label="试卷状态">
-                  <NTag :bordered="false" type="warning">
-                    {{ paperStatusDict.getLabel(detail.status) || '-' }}
-                  </NTag>
+                  <DictTag dict-code="assessment_paper_status" :value="detail.status" />
                 </NDescriptionsItem>
                 <NDescriptionsItem label="题目总数">{{ detail.questionTotal ?? 0 }}</NDescriptionsItem>
                 <NDescriptionsItem label="当前得分">{{ detail.score ?? '-' }}</NDescriptionsItem>
@@ -248,10 +242,10 @@ function toggleQuestionPanel(item: ReviewQuestionItem, field: 'showStem' | 'show
                     <span class="question-card__knowledge">{{ item.knowledgePoint || '未设置知识点' }}</span>
                   </div>
                   <div class="question-card__tags">
-                    <NTag :bordered="false" type="info">{{ questionTypeDict.getLabel(item.questionType) || '-' }}</NTag>
-                    <NTag :bordered="false" type="warning">{{ difficultyDict.getLabel(item.difficulty) || '-' }}</NTag>
+                    <DictTag dict-code="assessment_question_type" :value="item.questionType" />
+                    <DictTag dict-code="assessment_question_difficulty" :value="item.difficulty" />
                     <NTag :bordered="false" type="success">分值 {{ item.score ?? 0 }}</NTag>
-                    <NTag :bordered="false" type="default">自动判定 {{ reviewResultDict.getLabel(item.finalResult) || '-' }}</NTag>
+                    <span class="paper-item__review-result">自动判定 <DictTag dict-code="assessment_review_result" :value="item.finalResult" /></span>
                   </div>
                 </div>
 
@@ -422,6 +416,12 @@ html.dark .question-card {
 .question-card__tags {
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.paper-item__review-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .question-card__toolbar {

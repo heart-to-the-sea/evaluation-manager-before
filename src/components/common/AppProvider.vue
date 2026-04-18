@@ -40,6 +40,12 @@ const themeOverrides = computed(() => {
   const borderColor = dark ? '#3c3c3c' : '#e5e6eb';
   const hoverColor = dark ? 'rgba(255, 255, 255, 0.06)' : '#f7f8fa';
   const pressedColor = dark ? 'rgba(255, 255, 255, 0.1)' : '#f2f3f5';
+  const tableHeaderColor = dark ? 'rgb(34, 34, 34)' : 'rgb(250, 251, 252)';
+  const tableHeaderHoverColor = dark ? 'rgb(38, 38, 38)' : 'rgb(245, 247, 250)';
+  const tableHeaderSortingColor = dark ? 'rgb(42, 42, 42)' : 'rgb(242, 247, 255)';
+  const tableRowHoverColor = dark ? 'rgb(36, 36, 36)' : 'rgb(245, 247, 250)';
+  const tableRowStripedColor = dark ? 'rgb(31, 31, 31)' : 'rgb(252, 253, 255)';
+  const tableRowSortingColor = dark ? 'rgb(40, 40, 40)' : 'rgb(242, 247, 255)';
   const focusShadow = `0 0 0 2px rgba(${colorRgb}, 0.14)`;
   const secondaryColor = dark ? 'rgba(255, 255, 255, 0.08)' : hexToRgba(color, 0.1);
   const secondaryHoverColor = dark ? 'rgba(255, 255, 255, 0.12)' : hexToRgba(color, 0.14);
@@ -222,13 +228,15 @@ const themeOverrides = computed(() => {
     DataTable: {
       borderRadius: '12px',
       borderColor,
-      thColor: dark ? 'rgba(255, 255, 255, 0.04)' : 'rgb(250, 251, 252)',
-      thColorHover: dark ? 'rgba(255, 255, 255, 0.05)' : 'rgb(245, 247, 250)',
-      thColorSorting: dark ? 'rgba(255, 255, 255, 0.06)' : 'rgb(242, 247, 255)',
+      thColor: tableHeaderColor,
+      thColorHover: tableHeaderHoverColor,
+      thColorSorting: tableHeaderSortingColor,
       tdColor: containerColor,
-      tdColorHover: dark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(32, 128, 240, 0.03)',
-      tdColorStriped: dark ? 'rgba(255, 255, 255, 0.015)' : 'rgb(252, 253, 255)',
-      tdColorSorting: dark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(32, 128, 240, 0.05)',
+      tdColorHover: tableRowHoverColor,
+      tdColorStriped: tableRowStripedColor,
+      tdColorSorting: tableRowSortingColor,
+      boxShadowBefore: dark ? 'inset -12px 0 8px -12px rgba(0, 0, 0, 0.42)' : 'inset -12px 0 8px -12px rgba(15, 23, 42, 0.16)',
+      boxShadowAfter: dark ? 'inset 12px 0 8px -12px rgba(0, 0, 0, 0.42)' : 'inset 12px 0 8px -12px rgba(15, 23, 42, 0.16)',
       tdTextColor: baseTextColor,
       thTextColor: baseTextColor,
       thFontWeight: '600',
