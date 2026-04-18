@@ -204,23 +204,6 @@ async function loadDailyReports(stages: AssessmentInternPathStageVo[]) {
   dailyReportMap.value = Object.fromEntries(entries);
 }
 
-function getPathStatusText(status?: string) {
-  if (status === 'not_started') return '未开始培训';
-  if (status === 'in_progress') return '培训中';
-  if (status === 'completed') return '已结训';
-  return status || '-';
-}
-
-function getStageStatusText(status?: string) {
-  if (status === 'pending') return '待开始';
-  if (status === 'in_progress') return '培训中';
-  if (status === 'pending_review') return '待批阅';
-  if (status === 'passed') return '已通过';
-  if (status === 'failed') return '未通过';
-  if (status === 'skipped') return '已跳过';
-  return status || '-';
-}
-
 function getPaperPassType(record?: AssessmentPaperVo): 'default' | 'success' | 'error' | 'warning' {
   if (record?.status === 'pending_review') return 'warning';
   if (record?.passFlag === true) return 'success';
@@ -638,7 +621,7 @@ async function handlePaperDialogRefresh() {
                   <NDescriptionsItem label="培训结束时间">{{ detail.trainingEndDate || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="当前培训阶段">{{ detail.currentStageName || '-' }}</NDescriptionsItem>
                   <NDescriptionsItem label="培训状态">
-                    <DictTag dict-code="assessment_path_status" :value="detail.status" :fallback-label="getPathStatusText(detail.status)" />
+                    <DictTag dict-code="assessment_path_status" :value="detail.status" />
                   </NDescriptionsItem>
                   <NDescriptionsItem label="阶段数量">{{ detail.stages?.length || 0 }}</NDescriptionsItem>
                   <NDescriptionsItem label="当前学习时间">{{ resolveStudyDaysText(currentStage) }}</NDescriptionsItem>
@@ -671,7 +654,7 @@ async function handlePaperDialogRefresh() {
                     <div class="stage-item__header" @click="toggleStageExpanded(stage)">
                       <div class="stage-item__title">
                         <span>{{ stage.stageName || '-' }}</span>
-                        <DictTag dict-code="assessment_path_stage_status" :value="stage.status" :fallback-label="getStageStatusText(stage.status)" />
+                        <DictTag dict-code="assessment_path_stage_status" :value="stage.status" />
                         <DictTag dict-code="assessment_stage_timing_status" :value="stage.timingStatus" />
                       </div>
                       <div class="stage-item__meta">

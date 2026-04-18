@@ -106,6 +106,7 @@ const searchParams = ref({
 });
 
 const timingStatusDict = useDict('assessment_stage_timing_status');
+const stageStatusDict = useDict('assessment_path_stage_status');
 
 const pagination = reactive({
   page: 1,
@@ -169,7 +170,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     key: 'status',
     width: 120,
     align: 'center',
-    render: row => <DictTag dictCode="assessment_path_status" value={row.status} fallbackLabel={getPathStatusText(row.status)} />
+    render: row => <DictTag dictCode="assessment_path_status" value={row.status} />
   },
   {
     title: TEXT.progress,
@@ -359,23 +360,6 @@ async function handlePaperDialogClose(submitted = false) {
   }
 }
 
-function getPathStatusText(status?: string) {
-  if (status === 'not_started') return '未开始培训';
-  if (status === 'in_progress') return '培训中';
-  if (status === 'completed') return '已结训';
-  return status || '-';
-}
-
-function getStageStatusText(status?: string) {
-  if (status === 'pending') return '待开始';
-  if (status === 'in_progress') return '培训中';
-  if (status === 'pending_review') return '待批阅';
-  if (status === 'passed') return '已通过';
-  if (status === 'failed') return '未通过';
-  if (status === 'skipped') return '已跳过';
-  return status || '-';
-}
-
 function getTimingTagType(status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
   if (status === 'assessed_on_time') return 'success';
   if (status === 'assessable' || status === 'assessed_early') return 'warning';
@@ -513,7 +497,7 @@ function getPaperActionText(row: RowData) {
 function renderTooltipContent(stage: AssessmentInternPathStageVo) {
   const rows = [
     { label: TEXT.stageName, value: stage.stageName || '-' },
-    { label: TEXT.stageStatus, value: getStageStatusText(stage.status) },
+    { label: TEXT.stageStatus, value: stageStatusDict.getLabel(stage.status) || stage.status || '-' },
     { label: TEXT.studyDays, value: resolveStudyDaysText(stage) },
     { label: TEXT.startedAt, value: stage.startedAt || '-' },
     { label: TEXT.earliestAssessAt, value: stage.earliestAssessAt || '-' },
