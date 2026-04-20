@@ -18,6 +18,8 @@ const expandedRowKeys = ref<string[]>([]);
 const showDialog = ref(false);
 const editingMenu = ref<Partial<MenuVo> | null>(null);
 
+const totalCount = computed(() => countMenuNodes(menuTree.value));
+
 const columns = computed<DataTableColumns<MenuVo>>(() => [
   { title: '菜单名称', key: 'label', tree: true, minWidth: 220, render: row => row.label || '-' },
   {
@@ -88,6 +90,10 @@ function collectExpandedKeys(list: MenuVo[]) {
   }, []);
 }
 
+function countMenuNodes(list: MenuVo[]) {
+  return list.reduce((total, item) => total + 1 + countMenuNodes(item.children || []), 0);
+}
+
 function handleSearch() { loadData(); }
 function handleReset() {
   searchParams.value = { label: '', routeKey: '', routePath: '' };
@@ -120,7 +126,7 @@ function handleDialogClose(submitted = false) {
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :total="totalCount" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">

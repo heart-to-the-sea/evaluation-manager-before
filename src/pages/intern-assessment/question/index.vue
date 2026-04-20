@@ -1,13 +1,13 @@
 <script setup lang="tsx">
-import { computed, h, onMounted, reactive, ref } from 'vue';
-import { AddCircle } from '@vicons/ionicons5';
-import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace } from 'naive-ui';
-import type { DataTableColumns, SelectOption } from 'naive-ui';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { AddCircle, ChevronDownOutline } from '@vicons/ionicons5';
+import { NButton, NDataTable, NDropdown, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NSelect } from 'naive-ui';
+import type { DataTableColumns, DataTableRowKey, DropdownOption, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import QuestionDialog from '@/components/features/intern-assessment/QuestionDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
-import { fetchAssessmentQuestionDelete, fetchAssessmentQuestionList, fetchAssessmentStageList } from '@/service/api';
+import { fetchAssessmentQuestionDelete, fetchAssessmentQuestionList, fetchAssessmentQuestionTemplateDownload, fetchAssessmentStageList } from '@/service/api';
 import type { AssessmentQuestionVo } from '@/types/app';
 
 definePageMeta({
@@ -31,6 +31,9 @@ const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentQuestionVo | null>(null);
 const stageOptions = ref<SelectOption[]>([]);
+const checkedRowKeys = ref<DataTableRowKey[]>([]);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const taskStore = useAssessmentTaskStore();
 
 const pagination = reactive({
   page: 1,
@@ -38,6 +41,7 @@ const pagination = reactive({
   pageSizes: [20, 50, 100, 200],
   showSizePicker: true,
   itemCount: 0,
+  prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
   onChange: (page: number) => {
     pagination.page = page;
     loadData();
@@ -50,6 +54,10 @@ const pagination = reactive({
 });
 
 const columns = computed<DataTableColumns<RowData>>(() => [
+  {
+    type: 'selection',
+    fixed: 'left'
+  },
   {
     title: '#',
     key: 'index',
@@ -109,6 +117,13 @@ const columns = computed<DataTableColumns<RowData>>(() => [
   }
 ]);
 
+const moreOptions = computed<DropdownOption[]>(() => [
+  { label: '导入题库', key: 'import' },
+  { label: '导出题库', key: 'export-all' },
+  { label: `导出所选${checkedRowKeys.value.length ? `（${checkedRowKeys.value.length}）` : ''}`, key: 'export-selected', disabled: !checkedRowKeys.value.length },
+  { label: '下载空白模板', key: 'download-template' }
+]);
+
 onMounted(async () => {
   await loadStageOptions();
   await loadData();
@@ -147,6 +162,7 @@ async function loadData() {
       ...item,
       key: item.id || `${index}`
     }));
+    checkedRowKeys.value = [];
     pagination.itemCount = data?.total || 0;
   } finally {
     loading.value = false;
@@ -202,19 +218,86 @@ async function handleDialogClose(submitted = false) {
     await loadData();
   }
 }
+
+async function submitImportFile(file: File) {
+  if (!(file instanceof File)) {
+    return;
+  }
+  const result = await taskStore.submitQuestionImport(file);
+  if (result) {
+    await loadData();
+  }
+}
+
+async function handleExport() {
+  await taskStore.submitQuestionExport({
+    stageId: searchParams.value.stageId || undefined,
+    questionType: searchParams.value.questionType || undefined,
+    difficulty: searchParams.value.difficulty || undefined,
+    stem: searchParams.value.stem || undefined,
+    status: searchParams.value.status || undefined
+  });
+}
+
+async function handleExportSelected() {
+  const ids = checkedRowKeys.value.map(item => String(item)).filter(Boolean);
+  if (!ids.length) {
+    window.$message?.warning('请先选择需要导出的题目');
+    return;
+  }
+  await taskStore.submitQuestionExport({ ids });
+}
+
+function handleCheckedRowKeysChange(value: DataTableRowKey[]) {
+  checkedRowKeys.value = value;
+}
+
+async function handleMoreSelect(key: string) {
+  if (key === 'import') {
+    fileInputRef.value?.click();
+    return;
+  }
+  if (key === 'export-all') {
+    await handleExport();
+    return;
+  }
+  if (key === 'export-selected') {
+    await handleExportSelected();
+    return;
+  }
+  if (key === 'download-template') {
+    await fetchAssessmentQuestionTemplateDownload();
+  }
+}
+
+async function handleFileInputChange(event: Event) {
+  const target = event.target as HTMLInputElement | null;
+  const file = target?.files?.[0];
+  if (file) {
+    await submitImportFile(file);
+  }
+  if (target) {
+    target.value = '';
+  }
+}
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :pagination="pagination" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">
           <NSpace justify="end">
-            <NSelect v-model:value="searchParams.stageId" :options="stageOptions" clearable placeholder="所属阶段" style="width: 200px" />
-            <DictSelect v-model:model-value="searchParams.questionType" dict-code="assessment_question_type" clearable placeholder="题型" style="width: 140px" />
-            <DictSelect v-model:model-value="searchParams.difficulty" dict-code="assessment_question_difficulty" clearable placeholder="难度" style="width: 140px" />
-            <DictSelect v-model:model-value="searchParams.status" dict-code="assessment_enable_status" clearable placeholder="状态" style="width: 140px" />
-            <NInput v-model:value="searchParams.stem" clearable placeholder="请输入题干关键词" style="width: 220px" @keyup.enter="handleSearch" />
+            <NSelect v-model:value="searchParams.stageId" :options="stageOptions" clearable placeholder="所属阶段"
+              style="width: 200px" />
+            <DictSelect v-model:model-value="searchParams.questionType" dict-code="assessment_question_type" clearable
+              placeholder="题型" style="width: 140px" />
+            <DictSelect v-model:model-value="searchParams.difficulty" dict-code="assessment_question_difficulty"
+              clearable placeholder="难度" style="width: 140px" />
+            <DictSelect v-model:model-value="searchParams.status" dict-code="assessment_enable_status" clearable
+              placeholder="状态" style="width: 140px" />
+            <NInput v-model:value="searchParams.stem" clearable placeholder="请输入题干关键词" style="width: 220px"
+              @keyup.enter="handleSearch" />
             <NButton type="primary" @click="handleSearch">查询</NButton>
             <NButton @click="handleReset">重置</NButton>
           </NSpace>
@@ -223,23 +306,26 @@ async function handleDialogClose(submitted = false) {
     </template>
 
     <template #h-btns>
+      <input ref="fileInputRef" type="file" accept=".xls,.xlsx" style="display: none" @change="handleFileInputChange" />
       <NButton type="primary" @click="handleAdd">
-        <NIcon class="mr-6px" size="18"><AddCircle /></NIcon>
+        <NIcon class="mr-6px" size="18">
+          <AddCircle />
+        </NIcon>
         新增题目
       </NButton>
+      <NDropdown :options="moreOptions" @select="handleMoreSelect">
+        <NButton>
+          更多
+          <template #icon>
+            <NIcon><ChevronDownOutline /></NIcon>
+          </template>
+        </NButton>
+      </NDropdown>
     </template>
 
-    <NDataTable
-      :bordered="false"
-      :single-line="false"
-      :columns="columns"
-      :data="tableData"
-      :loading="loading"
-      :pagination="pagination"
-      :row-key="row => row.key"
-      flex-height
-      :style="{ height: '100%' }"
-    />
+    <NDataTable :bordered="false" :single-line="false" :columns="columns" :data="tableData" :loading="loading"
+      :pagination="pagination" :row-key="row => row.key" :checked-row-keys="checkedRowKeys"
+      @update:checked-row-keys="handleCheckedRowKeysChange" flex-height :style="{ height: '100%' }" />
 
     <QuestionDialog :show="showDialog" :data="editData" :stage-options="stageOptions" @close="handleDialogClose" />
   </SearchTablePageLayout>

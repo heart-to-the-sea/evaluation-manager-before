@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { computed, h, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
 import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
@@ -35,6 +35,7 @@ const pagination = reactive({
   pageSizes: [20, 50, 100, 200],
   showSizePicker: true,
   itemCount: 0,
+  prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
   onChange: (page: number) => {
     pagination.page = page;
     loadData();
@@ -56,6 +57,17 @@ const columns = computed<DataTableColumns<RowData>>(() => [
   },
   { title: '阶段编码', key: 'code', width: 160 },
   { title: '阶段名称', key: 'name', minWidth: 160 },
+  {
+    title: '颜色',
+    key: 'stageColor',
+    width: 100,
+    align: 'center',
+    render: row => (
+      <div class="stage-color-cell">
+        <span class="stage-color-cell__dot" style={{ backgroundColor: row.stageColor || 'rgb(var(--em-primary-color-rgb) / 0.18)' }}></span>
+      </div>
+    )
+  },
   {
     title: '学习时间',
     key: 'studyDays',
@@ -191,7 +203,7 @@ async function handleDialogClose(submitted = false) {
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :pagination="pagination" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">
@@ -228,3 +240,20 @@ async function handleDialogClose(submitted = false) {
     <StageDialog :show="showDialog" :data="editData" @close="handleDialogClose" />
   </SearchTablePageLayout>
 </template>
+
+<style scoped lang="scss">
+.stage-color-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage-color-cell__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 0 0 4px rgb(var(--em-primary-color-rgb) / 0.08);
+}
+</style>

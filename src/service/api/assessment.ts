@@ -1,8 +1,16 @@
 import type {
+  AssessmentDailyReportCalendarVo,
+  AssessmentDailyReportDateDetailVo,
+  AssessmentDailyReportQueryBo,
   AssessmentInternPathBo,
+  AssessmentPathDailyCalendarVo,
   AssessmentStageActionBo,
   AssessmentStageDailyReportBo,
   AssessmentStageDailyReportVo,
+  AssessmentViolationRecordBo,
+  AssessmentViolationRecordVo,
+  AssessmentExitRecordBo,
+  AssessmentExitRecordVo,
   AssessmentScheduleCalcVo,
   AssessmentInternPathVo,
   AssessmentPaperCreateBo,
@@ -13,13 +21,14 @@ import type {
   AssessmentPathTemplateBo,
   AssessmentPathTemplateVo,
   AssessmentQuestionBo,
+  AssessmentTaskVo,
   AssessmentQuestionVo,
   AssessmentReportOverviewVo,
   AssessmentStageBo,
   AssessmentStageVo,
   PageResult
 } from '@/types/app';
-import { request } from '../request';
+import { request, requestBlob, requestUpload } from '../request';
 import * as URL from './url';
 
 export function fetchAssessmentStageList(params: AssessmentStageBo) {
@@ -82,6 +91,33 @@ export function fetchAssessmentQuestionDelete(id: string) {
   return request<void>({ url: URL.ASSESSMENT_QUESTION_DELETE, method: 'delete', params: { id } });
 }
 
+export function fetchAssessmentQuestionImport(file: File, taskId?: string) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return requestUpload<AssessmentTaskVo>({
+    url: URL.ASSESSMENT_QUESTION_IMPORT,
+    method: 'post',
+    params: taskId ? { taskId } : undefined,
+    data: formData
+  });
+}
+
+export function fetchAssessmentQuestionExport(data: AssessmentQuestionBo) {
+  return request<AssessmentTaskVo>({ url: URL.ASSESSMENT_QUESTION_EXPORT, method: 'post', data });
+}
+
+export function fetchAssessmentQuestionTemplateDownload() {
+  return requestBlob({ url: URL.ASSESSMENT_QUESTION_TEMPLATE_DOWNLOAD, method: 'get', fileName: '题库导入模板.xlsx' });
+}
+
+export function fetchAssessmentTaskList() {
+  return request<AssessmentTaskVo[]>({ url: URL.ASSESSMENT_TASK_LIST, method: 'get' });
+}
+
+export function fetchAssessmentTaskDownload(id: string, fileName?: string) {
+  return requestBlob({ url: URL.ASSESSMENT_TASK_DOWNLOAD, method: 'get', params: { id }, fileName });
+}
+
 export function fetchAssessmentPathList(params: AssessmentInternPathBo) {
   return request<PageResult<AssessmentInternPathVo>>({ url: URL.ASSESSMENT_PATH_LIST, method: 'get', params });
 }
@@ -124,6 +160,34 @@ export function fetchAssessmentPathStageDailySave(data: AssessmentStageDailyRepo
 
 export function fetchAssessmentPathStageDailyDelete(id: string) {
   return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_DAILY_DELETE, method: 'delete', params: { id } });
+}
+
+export function fetchAssessmentPathDailyCalendar(pathId: string) {
+  return request<AssessmentPathDailyCalendarVo>({ url: URL.ASSESSMENT_PATH_DAILY_CALENDAR, method: 'get', params: { pathId } });
+}
+
+export function fetchAssessmentDailyReportCalendar(params: AssessmentDailyReportQueryBo) {
+  return request<AssessmentDailyReportCalendarVo>({ url: URL.ASSESSMENT_DAILY_REPORT_CALENDAR, method: 'get', params });
+}
+
+export function fetchAssessmentDailyReportDateDetail(params: AssessmentDailyReportQueryBo) {
+  return request<AssessmentDailyReportDateDetailVo>({ url: URL.ASSESSMENT_DAILY_REPORT_DATE_DETAIL, method: 'get', params });
+}
+
+export function fetchAssessmentPathViolationList(params: { pathId?: string; pathStageId?: string }) {
+  return request<AssessmentViolationRecordVo[]>({ url: URL.ASSESSMENT_PATH_VIOLATION_LIST, method: 'get', params });
+}
+
+export function fetchAssessmentPathViolationSave(data: AssessmentViolationRecordBo) {
+  return request<AssessmentViolationRecordVo>({ url: URL.ASSESSMENT_PATH_VIOLATION_SAVE, method: 'post', data });
+}
+
+export function fetchAssessmentPathExitList(params: { pathId?: string; userId?: string }) {
+  return request<AssessmentExitRecordVo[]>({ url: URL.ASSESSMENT_PATH_EXIT_LIST, method: 'get', params });
+}
+
+export function fetchAssessmentPathExitSave(data: AssessmentExitRecordBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_EXIT_SAVE, method: 'post', data });
 }
 
 export function fetchAssessmentPaperList(params: AssessmentPaperQueryBo) {

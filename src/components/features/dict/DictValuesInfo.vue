@@ -217,7 +217,7 @@ function handleAdd() {
     customColor: '',
     className: '',
     sort: dataList.value.length + 1,
-    status: 1,
+    status: '1',
     isNew: true
   });
 }

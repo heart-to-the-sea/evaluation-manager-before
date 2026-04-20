@@ -47,6 +47,11 @@ export const ASSESSMENT_QUESTION_GET_BY_ID = '/assessment/question/getById';
 export const ASSESSMENT_QUESTION_ADD = '/assessment/question/add';
 export const ASSESSMENT_QUESTION_UPDATE = '/assessment/question/update';
 export const ASSESSMENT_QUESTION_DELETE = '/assessment/question/delete';
+export const ASSESSMENT_QUESTION_IMPORT = '/assessment/question/import';
+export const ASSESSMENT_QUESTION_EXPORT = '/assessment/question/export';
+export const ASSESSMENT_QUESTION_TEMPLATE_DOWNLOAD = '/assessment/question/template/download';
+export const ASSESSMENT_TASK_LIST = '/assessment/task/list';
+export const ASSESSMENT_TASK_DOWNLOAD = '/assessment/task/download';
 
 export const ASSESSMENT_PATH_LIST = '/assessment/path/list';
 export const ASSESSMENT_PATH_GET_BY_ID = '/assessment/path/getById';
@@ -59,6 +64,13 @@ export const ASSESSMENT_PATH_STAGE_END = '/assessment/path/stage/end';
 export const ASSESSMENT_PATH_STAGE_DAILY_LIST = '/assessment/path/stage/daily/list';
 export const ASSESSMENT_PATH_STAGE_DAILY_SAVE = '/assessment/path/stage/daily/save';
 export const ASSESSMENT_PATH_STAGE_DAILY_DELETE = '/assessment/path/stage/daily/delete';
+export const ASSESSMENT_PATH_DAILY_CALENDAR = '/assessment/path/daily/calendar';
+export const ASSESSMENT_DAILY_REPORT_CALENDAR = '/assessment/daily-report/calendar';
+export const ASSESSMENT_DAILY_REPORT_DATE_DETAIL = '/assessment/daily-report/date-detail';
+export const ASSESSMENT_PATH_VIOLATION_LIST = '/assessment/path/violation/list';
+export const ASSESSMENT_PATH_VIOLATION_SAVE = '/assessment/path/violation/save';
+export const ASSESSMENT_PATH_EXIT_LIST = '/assessment/path/exit/list';
+export const ASSESSMENT_PATH_EXIT_SAVE = '/assessment/path/exit/save';
 
 export const ASSESSMENT_PAPER_LIST = '/assessment/paper/list';
 export const ASSESSMENT_PAPER_GET_BY_ID = '/assessment/paper/getById';

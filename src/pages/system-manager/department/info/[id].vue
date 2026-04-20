@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { ArrowBackOutline } from '@vicons/ionicons5';
-import { NButton, NDescriptions, NDescriptionsItem, NEmpty, NIcon, NSpin } from 'naive-ui';
-import DictTag from '@/components/common/DictTag.vue';
+import { NButton, NEmpty, NIcon, NSpin } from 'naive-ui';
+import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 import { fetchDepartmentById, fetchDepartmentTreeList } from '@/service/api';
 import type { DepartmentVo } from '@/types/app';
@@ -27,6 +27,16 @@ const parentName = computed(() => {
 
   return departmentMap.value[parentId]?.name || parentId;
 });
+const detailItems = computed(() => [
+  { label: '部门名称', text: detail.value?.name || '-' },
+  { label: '上级部门', text: parentName.value },
+  { label: '负责人', text: detail.value?.leaderName || '-' },
+  { label: '排序', text: detail.value?.sort ?? 0 },
+  { label: '部门状态', dictCode: 'department_status', dictValue: detail.value?.status },
+  { label: '创建时间', text: detail.value?.createdAt || '-' },
+  { label: '更新时间', text: detail.value?.updatedAt || '-' },
+  { label: '备注', text: detail.value?.remark || '-' }
+]);
 
 watch(departmentId, () => {
   loadDetail();
@@ -100,18 +110,7 @@ async function loadDetail() {
       <NSpin :show="loading">
         <NEmpty v-if="!detail" description="暂无部门信息" />
 
-        <NDescriptions v-else bordered label-placement="left" :column="2">
-          <NDescriptionsItem label="部门名称">{{ detail.name || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="上级部门">{{ parentName }}</NDescriptionsItem>
-          <NDescriptionsItem label="负责人">{{ detail.leaderName || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="排序">{{ detail.sort ?? 0 }}</NDescriptionsItem>
-          <NDescriptionsItem label="部门状态">
-            <DictTag dict-code="department_status" :value="detail.status" />
-          </NDescriptionsItem>
-          <NDescriptionsItem label="创建时间">{{ detail.createdAt || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="更新时间">{{ detail.updatedAt || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="备注">{{ detail.remark || '-' }}</NDescriptionsItem>
-        </NDescriptions>
+        <InfoGridCard v-else :items="detailItems" auto-columns :min-item-width="220" :max-columns="4" />
       </NSpin>
     </template>
   </InfoPageLayout>

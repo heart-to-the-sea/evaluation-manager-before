@@ -3,8 +3,6 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { ArrowBackOutline } from '@vicons/ionicons5';
 import {
   NButton,
-  NDescriptions,
-  NDescriptionsItem,
   NEmpty,
   NIcon,
   NInput,
@@ -14,6 +12,7 @@ import {
 } from 'naive-ui';
 import DictTag from '@/components/common/DictTag.vue';
 import DictSelect from '@/components/common/DictSelect.vue';
+import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 import { fetchAssessmentPaperById, fetchAssessmentPaperRegenerate, fetchAssessmentPaperReview } from '@/service/api';
 import type { AssessmentPaperReviewBo, AssessmentPaperVo } from '@/types/app';
@@ -42,10 +41,15 @@ const detail = ref<ReviewPaperDetail | null>(null);
 const passFlag = ref(false);
 const finalComment = ref('');
 
-const detailDescriptionLabelStyle = { width: '108px' };
-const detailDescriptionContentStyle = { minWidth: '0' };
-
 const paperId = computed(() => String(route.params.id || ''));
+const paperInfoItems = computed(() => [
+  { label: '实习生', text: detail.value?.userName || '-' },
+  { label: '培训阶段', text: detail.value?.stageName || '-' },
+  { label: '试卷状态', dictCode: 'assessment_paper_status', dictValue: detail.value?.status },
+  { label: '题目总数', text: detail.value?.questionTotal ?? 0 },
+  { label: '当前得分', text: detail.value?.score ?? '-' },
+  { label: '已批阅时间', text: detail.value?.reviewedAt || '-' }
+]);
 
 watch(paperId, () => {
   loadDetail();
@@ -197,23 +201,7 @@ function toggleQuestionPanel(item: ReviewQuestionItem, field: 'showStem' | 'show
           <div class="detail-overview-grid">
             <div class="detail-section">
               <div class="detail-section__title">试卷信息</div>
-              <NDescriptions
-                bordered
-                label-placement="left"
-                :column="2"
-                class="detail-descriptions"
-                :label-style="detailDescriptionLabelStyle"
-                :content-style="detailDescriptionContentStyle"
-              >
-                <NDescriptionsItem label="实习生">{{ detail.userName || '-' }}</NDescriptionsItem>
-                <NDescriptionsItem label="培训阶段">{{ detail.stageName || '-' }}</NDescriptionsItem>
-                <NDescriptionsItem label="试卷状态">
-                  <DictTag dict-code="assessment_paper_status" :value="detail.status" />
-                </NDescriptionsItem>
-                <NDescriptionsItem label="题目总数">{{ detail.questionTotal ?? 0 }}</NDescriptionsItem>
-                <NDescriptionsItem label="当前得分">{{ detail.score ?? '-' }}</NDescriptionsItem>
-                <NDescriptionsItem label="已批阅时间">{{ detail.reviewedAt || '-' }}</NDescriptionsItem>
-              </NDescriptions>
+              <InfoGridCard :items="paperInfoItems" />
             </div>
 
             <div class="detail-section">
@@ -346,14 +334,6 @@ function toggleQuestionPanel(item: ReviewQuestionItem, field: 'showStem' | 'show
   margin-bottom: 16px;
   font-size: 16px;
   font-weight: 600;
-}
-
-.detail-section :deep(.n-descriptions) {
-  margin: 0;
-}
-
-.detail-section :deep(.detail-descriptions .n-descriptions-table-header) {
-  white-space: nowrap;
 }
 
 .question-list {

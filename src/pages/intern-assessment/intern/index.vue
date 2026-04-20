@@ -40,14 +40,15 @@ interface RowData extends AssessmentInternPathVo {
 
 const TEXT = {
   user: '实习生',
-  employeeNo: '工号',
   template: '培训模板',
-  currentStage: '当前培训阶段',
+  trainingStartDate: '培训开始日期',
+  trainingEndDate: '培训结束日期',
   totalStatus: '培训状态',
   progress: '阶段进度',
   updatedAt: '更新时间',
   actions: '操作',
   detail: '详情',
+  violation: '违规登记',
   createPaper: '发起阶段考核',
   reviewPaper: '阅卷',
   edit: '编辑',
@@ -114,6 +115,7 @@ const pagination = reactive({
   pageSizes: [20, 50, 100, 200],
   showSizePicker: true,
   itemCount: 0,
+  prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
   onChange: (page: number) => {
     pagination.page = page;
     loadData();
@@ -148,22 +150,22 @@ const columns = computed<DataTableColumns<RowData>>(() => [
     render: row => row.userName || '-'
   },
   {
-    title: TEXT.employeeNo,
-    key: 'employeeNo',
-    width: 130,
-    render: row => row.employeeNo || '-'
-  },
-  {
     title: TEXT.template,
     key: 'templateName',
     minWidth: 180,
     render: row => row.templateName || '-'
   },
   {
-    title: TEXT.currentStage,
-    key: 'currentStageName',
-    width: 150,
-    render: row => row.currentStageName || '-'
+    title: TEXT.trainingStartDate,
+    key: 'trainingStartDate',
+    width: 140,
+    render: row => formatDateOnly(row.trainingStartDate)
+  },
+  {
+    title: TEXT.trainingEndDate,
+    key: 'trainingEndDate',
+    width: 140,
+    render: row => formatDateOnly(row.trainingEndDate)
   },
   {
     title: TEXT.totalStatus,
@@ -187,7 +189,7 @@ const columns = computed<DataTableColumns<RowData>>(() => [
   {
     title: TEXT.actions,
     key: 'actions',
-    width: 320,
+    width: 400,
     fixed: 'right',
     align: 'center',
     render: row => (
@@ -195,12 +197,21 @@ const columns = computed<DataTableColumns<RowData>>(() => [
         <NButton size="small" quaternary type="primary" onClick={() => handleViewPath(row)}>
           {TEXT.detail}
         </NButton>
-        <NButton size="small" quaternary type="primary" onClick={() => handleCreatePaper(row)}>
-          {getPaperActionText(row)}
-        </NButton>
-        <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>
-          {TEXT.edit}
-        </NButton>
+        {!isCompletedPath(row) && (
+          <NButton size="small" quaternary type="warning" disabled={!canRegisterViolation(row)} onClick={() => handleRegisterViolation(row)}>
+            {TEXT.violation}
+          </NButton>
+        )}
+        {!isCompletedPath(row) && (
+          <NButton size="small" quaternary type="primary" onClick={() => handleCreatePaper(row)}>
+            {getPaperActionText(row)}
+          </NButton>
+        )}
+        {!isCompletedPath(row) && (
+          <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>
+            {TEXT.edit}
+          </NButton>
+        )}
         <NPopconfirm onPositiveClick={() => handleDelete(row)}>
           {{
             trigger: () => (
@@ -315,6 +326,22 @@ function handleEdit(row: RowData) {
 function handleViewPath(row: RowData) {
   if (!row.id) return;
   navigateTo(`/intern-assessment/intern/info/${row.id}`);
+}
+
+function canRegisterViolation(row: RowData) {
+  return Boolean(row.id && !['completed', 'dismissed', 'voluntary_resigned'].includes(row.status || ''));
+}
+
+function isCompletedPath(row: RowData) {
+  return row.status === 'completed';
+}
+
+function handleRegisterViolation(row: RowData) {
+  if (!row.id) return;
+  navigateTo({
+    path: `/intern-assessment/intern/info/${row.id}`,
+    query: { action: 'violation' }
+  });
 }
 
 function handleCreatePaper(row?: RowData) {
@@ -494,6 +521,11 @@ function getPaperActionText(row: RowData) {
   return getCurrentStageForRow(row)?.latestPaperId ? TEXT.reviewPaper : TEXT.createPaper;
 }
 
+function formatDateOnly(value?: string | null) {
+  if (!value) return '-';
+  return value.includes('T') ? value.split('T')[0] || '-' : value;
+}
+
 function renderTooltipContent(stage: AssessmentInternPathStageVo) {
   const rows = [
     { label: TEXT.stageName, value: stage.stageName || '-' },
@@ -564,7 +596,7 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :pagination="pagination" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">

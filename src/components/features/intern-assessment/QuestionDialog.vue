@@ -210,7 +210,7 @@ async function handleSubmit() {
           </NGi>
           <NGi>
             <NFormItem label="分值" path="score">
-              <NInputNumber v-model:value="formData.score" :min="0" style="width: 100%" />
+              <NInputNumber :value="Number(formData.score ?? 0)" :min="0" style="width: 100%" @update:value="value => (formData.score = value ?? 0)" />
             </NFormItem>
           </NGi>
           <NGi>

@@ -37,6 +37,7 @@ const pagination = reactive({
   pageSizes: [20, 50, 100, 200],
   showSizePicker: true,
   itemCount: 0,
+  prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
   onChange: (page: number) => {
     pagination.page = page;
     loadData();
@@ -223,7 +224,7 @@ function handleRegenerate(row: RowData) {
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :pagination="pagination" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">

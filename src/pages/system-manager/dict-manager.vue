@@ -34,6 +34,8 @@ const pagination = reactive({
   pageSize: 20,
   pageSizes: [20, 50, 100, 200],
   showSizePicker: true,
+  itemCount: 0,
+  prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
   onChange: (page: number) => {
     pagination.page = page;
     loadData();
@@ -118,6 +120,7 @@ async function loadData() {
       ...item,
       key: item.id || `${index}`
     }));
+    pagination.itemCount = data?.total || 0;
   } finally {
     loading.value = false;
   }
@@ -170,7 +173,7 @@ function handleAppendClose() {
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :pagination="pagination" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">

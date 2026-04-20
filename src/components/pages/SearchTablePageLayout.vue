@@ -1,10 +1,24 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { NCard, NIcon, useThemeVars } from 'naive-ui';
 import { RefreshCircle, SearchCircle } from '@vicons/ionicons5';
 
+interface PaginationLike {
+  itemCount?: number | string | null;
+}
+
+interface Props {
+  total?: number | string | null;
+  pagination?: PaginationLike | null;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  total: null
+});
+
 const themeVars = useThemeVars();
 const showSearch = ref(false);
+const displayTotal = computed(() => (props.pagination ? null : props.total));
 
 const emit = defineEmits<{
   refresh: [];
@@ -27,6 +41,7 @@ const emit = defineEmits<{
 
         <slot name="btns">
           <div class="handler-tools">
+            <div v-if="displayTotal !== null && displayTotal !== undefined" class="handler-total">共 {{ displayTotal }} 条</div>
             <NIcon size="36" :component="RefreshCircle" class="tool-icon" :color="themeVars.primaryColor" @click="emit('refresh')" />
             <NIcon size="36" :component="SearchCircle" style="cursor: pointer" :color="themeVars.primaryColor" @click="showSearch = !showSearch" />
           </div>
@@ -87,11 +102,25 @@ const emit = defineEmits<{
 .handler-tools {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .tool-icon {
   cursor: pointer;
+}
+
+.handler-total {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 17px;
+  background: rgb(var(--em-primary-color-rgb) / 8%);
+  box-shadow: inset 0 0 0 1px rgb(var(--em-primary-color-rgb) / 12%);
+  color: var(--em-primary-color);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .search-box-wrapper {

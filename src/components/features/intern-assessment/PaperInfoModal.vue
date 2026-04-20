@@ -1,9 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import {
   NButton,
-  NDescriptions,
-  NDescriptionsItem,
   NEmpty,
   NInput,
   NModal,
@@ -14,6 +12,7 @@ import {
 } from 'naive-ui';
 import DictTag from '@/components/common/DictTag.vue';
 import DictSelect from '@/components/common/DictSelect.vue';
+import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import { fetchAssessmentPaperById, fetchAssessmentPaperRegenerate, fetchAssessmentPaperReview } from '@/service/api';
 import type { AssessmentPaperItemVo, AssessmentPaperReviewBo, AssessmentPaperVo } from '@/types/app';
 
@@ -30,10 +29,12 @@ type ReviewPaperDetail = Omit<AssessmentPaperVo, 'items'> & {
 interface Props {
   show: boolean;
   paperId?: string | null;
+  readonly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  paperId: null
+  paperId: null,
+  readonly: false
 });
 
 const emit = defineEmits<{
@@ -48,6 +49,19 @@ const regenerating = ref(false);
 const detail = ref<ReviewPaperDetail | null>(null);
 const passFlag = ref(false);
 const finalComment = ref('');
+const readonlyMode = computed(() => props.readonly);
+const paperInfoItems = computed(() => [
+  { label: '实习生', text: detail.value?.userName || '-' },
+  { label: '培训阶段', text: detail.value?.stageName || '-' },
+  { label: '试卷状态', dictCode: 'assessment_paper_status', dictValue: detail.value?.status },
+  { label: '考核结论', text: getPassText(detail.value?.status, detail.value?.passFlag) },
+  { label: '题目总数', text: detail.value?.questionTotal ?? 0 },
+  { label: '答对题数', text: detail.value?.correctTotal ?? 0 },
+  { label: '当前得分', text: detail.value?.score ?? '-' },
+  { label: '批阅时间', text: detail.value?.reviewedAt || '-' },
+  { label: '创建时间', text: detail.value?.createdAt || '-' },
+  { label: '更新时间', text: detail.value?.updatedAt || '-' }
+]);
 
 const title = computed(() => {
   if (!detail.value) return '阶段考核';
@@ -152,13 +166,6 @@ function handleSubmitReview() {
   submitReview(true);
 }
 
-function getPassType(status?: string, pass?: boolean): 'default' | 'success' | 'error' | 'warning' {
-  if (status === 'pending_review') return 'warning';
-  if (pass === true) return 'success';
-  if (pass === false) return 'error';
-  return 'warning';
-}
-
 function getPassText(status?: string, pass?: boolean) {
   if (status === 'pending_review') return '待批阅';
   if (pass === true) return '通过';
@@ -233,37 +240,42 @@ async function handleRegenerate() {
 
       <NScrollbar v-else class="paper-info-modal__scroll">
         <div class="paper-info-modal__content">
-          <NDescriptions bordered label-placement="left" :column="2">
-            <NDescriptionsItem label="实习生">{{ detail.userName || '-' }}</NDescriptionsItem>
-            <NDescriptionsItem label="培训阶段">{{ detail.stageName || '-' }}</NDescriptionsItem>
-            <NDescriptionsItem label="试卷状态">
-              <DictTag dict-code="assessment_paper_status" :value="detail.status" />
-            </NDescriptionsItem>
-            <NDescriptionsItem label="考核结论">
-              <NTag :bordered="false" :type="getPassType(detail.status, detail.passFlag)">
-                {{ getPassText(detail.status, detail.passFlag) }}
-              </NTag>
-            </NDescriptionsItem>
-            <NDescriptionsItem label="题目总数">{{ detail.questionTotal ?? 0 }}</NDescriptionsItem>
-            <NDescriptionsItem label="答对题数">{{ detail.correctTotal ?? 0 }}</NDescriptionsItem>
-            <NDescriptionsItem label="当前得分">{{ detail.score ?? '-' }}</NDescriptionsItem>
-            <NDescriptionsItem label="批阅时间">{{ detail.reviewedAt || '-' }}</NDescriptionsItem>
-            <NDescriptionsItem label="创建时间">{{ detail.createdAt || '-' }}</NDescriptionsItem>
-            <NDescriptionsItem label="更新时间">{{ detail.updatedAt || '-' }}</NDescriptionsItem>
-          </NDescriptions>
+          <InfoGridCard :items="paperInfoItems" />
 
           <div class="paper-result">
             <div class="paper-result__header">
               <div class="paper-result__title">整卷结论</div>
               <div class="paper-result__switch">
                 <span>是否通过</span>
-                <NSwitch v-model:value="passFlag" />
+                <NSwitch v-model:value="passFlag" :disabled="readonlyMode" />
               </div>
             </div>
-            <NInput v-model:value="finalComment" type="textarea" :rows="3" placeholder="请输入整卷评语" />
+            <NInput v-model:value="finalComment" type="textarea" :rows="3" placeholder="请输入整卷评语" :readonly="readonlyMode" />
           </div>
 
-          <div v-if="detail.items?.length" class="question-list">
+          <div v-if="detail.items?.length && readonlyMode" class="question-list question-list--readonly">
+            <div v-for="(item, index) in detail.items" :key="item.id || index" class="question-row">
+              <div class="question-row__title">
+                <span class="question-row__index">第 {{ index + 1 }} 题</span>
+                <span class="question-row__stem">{{ item.stem || '-' }}</span>
+              </div>
+              <div class="question-row__result">
+                <NTag :bordered="false" :type="item.finalResult === 'CORRECT' ? 'success' : item.finalResult === 'PARTIAL' ? 'warning' : item.finalResult === 'WRONG' ? 'error' : 'default'">
+                  {{
+                    item.finalResult === 'CORRECT'
+                      ? '正确'
+                      : item.finalResult === 'PARTIAL'
+                        ? '部分正确'
+                        : item.finalResult === 'WRONG'
+                          ? '错误'
+                          : '未批阅'
+                  }}
+                </NTag>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="detail.items?.length" class="question-list">
             <div v-for="(item, index) in detail.items" :key="item.id || index" class="question-card">
               <div class="question-card__header">
                 <div class="question-card__title">
@@ -331,6 +343,7 @@ async function handleRegenerate() {
                     v-model:model-value="item.manualResult"
                     dict-code="assessment_review_result"
                     clearable
+                    :disabled="readonlyMode"
                     placeholder="请选择批阅结果"
                   />
                 </div>
@@ -338,7 +351,7 @@ async function handleRegenerate() {
 
               <div class="question-card__comment">
                 <div class="question-card__label">批阅说明</div>
-                <NInput v-model:value="item.reviewComment" type="textarea" :rows="2" placeholder="请输入题目评语" />
+                <NInput v-model:value="item.reviewComment" type="textarea" :rows="2" placeholder="请输入题目评语" :readonly="readonlyMode" />
               </div>
             </div>
           </div>
@@ -351,9 +364,11 @@ async function handleRegenerate() {
     <template #action>
       <div class="paper-info-modal__actions">
         <NButton @click="handleClose">关闭</NButton>
-        <NButton v-if="detail?.status === 'pending_review'" type="warning" ghost :loading="regenerating" @click="handleRegenerate">重新生成</NButton>
-        <NButton :loading="saving" @click="handleSaveDraft">保存草稿</NButton>
-        <NButton type="primary" :loading="submitting" @click="handleSubmitReview">提交批阅</NButton>
+        <template v-if="!readonlyMode">
+          <NButton v-if="detail?.status === 'pending_review'" type="warning" ghost :loading="regenerating" @click="handleRegenerate">重新生成</NButton>
+          <NButton :loading="saving" @click="handleSaveDraft">保存草稿</NButton>
+          <NButton type="primary" :loading="submitting" @click="handleSubmitReview">提交批阅</NButton>
+        </template>
       </div>
     </template>
   </NModal>
@@ -451,6 +466,48 @@ html.dark .question-card {
   margin-top: 14px;
 }
 
+.question-list--readonly {
+  gap: 8px;
+}
+
+.question-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgb(var(--container-bg-color));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color));
+}
+
+.question-row__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.question-row__index {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--n-text-color-2);
+}
+
+.question-row__stem {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--n-text-color-1);
+}
+
+.question-row__result {
+  flex-shrink: 0;
+}
+
 .question-card__tags {
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -540,5 +597,15 @@ html.dark .question-card {
   .question-card__summary {
     grid-template-columns: 1fr;
   }
+
+  .question-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .question-row__title {
+    width: 100%;
+  }
 }
 </style>
+

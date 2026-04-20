@@ -25,6 +25,8 @@ const expandedRowKeys = ref<string[]>([]);
 const showDialog = ref(false);
 const editData = ref<DepartmentVo | null>(null);
 
+const totalCount = computed(() => countDepartmentNodes(departmentTree.value));
+
 const columns = computed<DataTableColumns<DepartmentVo>>(() => [
   {
     title: '部门名称',
@@ -110,6 +112,10 @@ function collectExpandedKeys(list: DepartmentVo[]) {
 
     return result;
   }, []);
+}
+
+function countDepartmentNodes(list: DepartmentVo[]) {
+  return list.reduce((total, item) => total + 1 + countDepartmentNodes(item.children || []), 0);
 }
 
 async function loadData() {
@@ -204,7 +210,7 @@ async function handleDialogClose(submitted = false) {
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :total="totalCount" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">

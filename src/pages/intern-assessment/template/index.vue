@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { computed, h, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
 import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NPopover, NSpace, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
@@ -64,6 +64,7 @@ const pagination = reactive({
   pageSizes: [20, 50, 100, 200],
   showSizePicker: true,
   itemCount: 0,
+  prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
   onChange: (page: number) => {
     pagination.page = page;
     loadData();
@@ -269,7 +270,7 @@ async function handleDialogClose(submitted = false) {
 </script>
 
 <template>
-  <SearchTablePageLayout @refresh="loadData">
+  <SearchTablePageLayout :pagination="pagination" @refresh="loadData">
     <template #searchBox>
       <NGrid :cols="12">
         <NGi span="12">

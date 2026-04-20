@@ -271,6 +271,7 @@ export interface AssessmentStageVo {
   code?: string;
   name?: string;
   description?: string;
+  stageColor?: string;
   sort?: number;
   status?: string;
   minStudyDays?: number;
@@ -290,6 +291,7 @@ export interface AssessmentStageBo {
   code?: string;
   name?: string;
   description?: string;
+  stageColor?: string;
   sort?: number;
   status?: string;
   minStudyDays?: number;
@@ -384,6 +386,7 @@ export interface AssessmentQuestionBo {
   pageNum?: number;
   pageSize?: number;
   id?: string;
+  ids?: string[];
   stageId?: string;
   questionType?: string;
   stem?: string;
@@ -397,12 +400,38 @@ export interface AssessmentQuestionBo {
   options?: AssessmentQuestionOptionBo[];
 }
 
+export interface AssessmentTaskVo {
+  id?: string;
+  bizType?: string;
+  taskType?: string;
+  taskName?: string;
+  status?: string;
+  userId?: string;
+  userName?: string;
+  fileName?: string;
+  fileSize?: number;
+  resultFileName?: string;
+  resultFileSize?: number;
+  progress?: number;
+  totalCount?: number;
+  successCount?: number;
+  failCount?: number;
+  message?: string;
+  errorMessage?: string;
+  runVersion?: number;
+  startedAt?: string;
+  finishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AssessmentInternPathStageVo {
   id?: string;
   pathId?: string;
   userId?: string;
   stageId?: string;
   stageName?: string;
+  stageColor?: string;
   sort?: number;
   sourceType?: string;
   status?: string;
@@ -475,6 +504,127 @@ export interface AssessmentStageDailyReportBo {
   problem?: string;
   plan?: string;
   remark?: string;
+}
+
+export interface AssessmentPathDailyCalendarDayVo {
+  date?: string;
+  pathStageId?: string;
+  stageId?: string;
+  stageName?: string;
+  stageColor?: string;
+  stageStatus?: string;
+  holidayFlag?: boolean;
+  expectedReportFlag?: boolean;
+  submittedFlag?: boolean;
+  overtimeStageFlag?: boolean;
+  reportStatus?: 'submitted' | 'pending' | 'holiday' | 'upcoming' | 'none';
+  reports?: AssessmentStageDailyReportVo[];
+}
+
+export interface AssessmentPathDailyCalendarVo {
+  pathId?: string;
+  userId?: string;
+  userName?: string;
+  startDate?: string;
+  endDate?: string;
+  days?: AssessmentPathDailyCalendarDayVo[];
+}
+
+export interface AssessmentDailyReportQueryBo {
+  month?: string;
+  date?: string;
+  userId?: string;
+  templateId?: string;
+}
+
+export interface AssessmentDailyReportCalendarDayVo {
+  date?: string;
+  dayOfMonth?: number;
+  totalCount?: number;
+  submittedCount?: number;
+  pendingCount?: number;
+}
+
+export interface AssessmentDailyReportCalendarVo {
+  month?: string;
+  startDate?: string;
+  endDate?: string;
+  totalActiveCount?: number;
+  totalSubmittedCount?: number;
+  totalPendingCount?: number;
+  days?: AssessmentDailyReportCalendarDayVo[];
+}
+
+export interface AssessmentDailyReportDetailItemVo {
+  pathId?: string;
+  userId?: string;
+  userName?: string;
+  employeeNo?: string;
+  templateName?: string;
+  pathStatus?: string;
+  pathStageId?: string;
+  stageName?: string;
+  submitted?: boolean;
+  reportId?: string;
+  reportDate?: string;
+  content?: string;
+  problem?: string;
+  plan?: string;
+  remark?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentDailyReportDateDetailVo {
+  date?: string;
+  totalCount?: number;
+  submittedCount?: number;
+  pendingCount?: number;
+  records?: AssessmentDailyReportDetailItemVo[];
+}
+
+export interface AssessmentViolationRecordVo {
+  id?: string;
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  stageId?: string;
+  stageName?: string;
+  violationType?: string;
+  description?: string;
+  violationAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentViolationRecordBo {
+  id?: string;
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  violationType?: string;
+  description?: string;
+  violationAt?: string;
+}
+
+export interface AssessmentExitRecordVo {
+  id?: string;
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  exitType?: string;
+  reason?: string;
+  violationCount?: number;
+  exitAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentExitRecordBo {
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  exitType?: string;
+  reason?: string;
 }
 
 export interface AssessmentInternPathVo {

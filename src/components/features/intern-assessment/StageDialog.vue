@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import {
   NButton,
+  NColorPicker,
   NDynamicInput,
   NForm,
   NFormItem,
@@ -16,6 +17,7 @@ import type { FormInst, FormRules } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
 import { fetchAssessmentStageAdd, fetchAssessmentStageUpdate } from '@/service/api';
 import type { AssessmentStageBo, AssessmentStageVo } from '@/types/app';
+import { dictColorPresetValues } from '@/constants/dict';
 
 interface Props {
   show: boolean;
@@ -71,6 +73,7 @@ function createDefaultForm(): AssessmentStageBo {
     code: '',
     name: '',
     description: '',
+    stageColor: '',
     sort: 0,
     status: '1',
     minStudyDays: undefined,
@@ -92,6 +95,7 @@ function createFormData(data?: AssessmentStageVo | null): AssessmentStageBo {
     code: data.code || '',
     name: data.name || '',
     description: data.description || '',
+    stageColor: data.stageColor || '',
     sort: data.sort ?? 0,
     status: data.status || '1',
     minStudyDays: data.minStudyDays ?? undefined,
@@ -167,6 +171,7 @@ async function handleSubmit() {
       code: formData.value.code?.trim(),
       name: formData.value.name?.trim(),
       description: formData.value.description?.trim() || undefined,
+      stageColor: formData.value.stageColor?.trim() || undefined,
       passRemark: formData.value.passRemark?.trim() || undefined,
       materials: (formData.value.materials || [])
         .filter(item => item.title || item.materialUrl)
@@ -228,6 +233,19 @@ async function handleSubmit() {
             </NFormItem>
           </NGi>
           <NGi>
+            <NFormItem label="阶段颜色" path="stageColor">
+              <NColorPicker
+                :value="formData.stageColor || null"
+                class="stage-color-picker"
+                :modes="['hex']"
+                :show-alpha="false"
+                :actions="['confirm', 'clear']"
+                :swatches="dictColorPresetValues"
+                @update:value="value => (formData.stageColor = value || '')"
+              />
+            </NFormItem>
+          </NGi>
+          <NGi>
             <NFormItem label="排序" path="sort">
               <NInputNumber v-model:value="formData.sort" :min="0" style="width: 100%" />
             </NFormItem>
@@ -244,7 +262,7 @@ async function handleSubmit() {
           </NGi>
           <NGi>
             <NFormItem label="通过分数" path="passScore">
-              <NInputNumber v-model:value="formData.passScore" :min="0" style="width: 100%" />
+              <NInputNumber :value="Number(formData.passScore ?? 0)" :min="0" style="width: 100%" @update:value="value => (formData.passScore = value ?? 0)" />
             </NFormItem>
           </NGi>
           <NGi>
@@ -323,5 +341,22 @@ async function handleSubmit() {
 .section-header__title {
   font-size: 16px;
   font-weight: 600;
+}
+
+:deep(.stage-color-picker .n-color-picker-trigger) {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 90%);
+}
+
+:deep(.stage-color-picker .n-color-picker-trigger__fill) {
+  border-radius: 9px;
+}
+
+:deep(.stage-color-picker .n-color-picker-trigger__value) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 </style>

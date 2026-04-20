@@ -1,4 +1,4 @@
-export interface PageRouteTemplate {
+﻿export interface PageRouteTemplate {
   label: string;
   routeKey: string;
   routePath: string;
@@ -98,9 +98,16 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.intern-assessment.report.index'
   },
   {
+    label: '日报管理',
+    routeKey: 'intern_assessment_daily_report',
+    routePath: '/intern-assessment/daily-report',
+    component: 'view.intern-assessment.daily-report.index'
+  },
+  {
     label: '内嵌页面',
     routeKey: 'iframe_page_url',
     routePath: '/iframe-page/:url',
     component: 'layout.base$view.iframe-page'
   }
 ];
+

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ArrowBackOutline } from '@vicons/ionicons5';
-import { NButton, NDescriptions, NDescriptionsItem, NIcon, NSkeleton } from 'naive-ui';
+import { computed } from 'vue';
+import { NButton, NEmpty, NIcon, NSkeleton } from 'naive-ui';
 import type { MenuVo } from '@/types/app';
 import { fetchMenuById } from '@/service/api';
+import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 
 definePageMeta({
@@ -12,6 +14,18 @@ definePageMeta({
 const route = useRoute();
 const loading = ref(false);
 const menuInfo = ref<MenuVo | null>(null);
+const detailItems = computed(() => [
+  { label: '菜单名称', text: menuInfo.value?.label || '-' },
+  { label: '菜单标识', text: menuInfo.value?.key || '-' },
+  { label: '页面标识', text: menuInfo.value?.routeKey || '-' },
+  { label: '页面路径', text: menuInfo.value?.routePath || '-' },
+  { label: '菜单类型', text: menuInfo.value?.menuType === 'DIRECTORY' ? '目录' : '菜单' },
+  { label: '布局方案', text: menuInfo.value?.component || '自动匹配' },
+  { label: '图标', text: menuInfo.value?.icon || '-' },
+  { label: '排序', text: menuInfo.value?.sort ?? 0 },
+  { label: '状态', text: menuInfo.value?.status === 1 ? '启用' : '禁用' },
+  { label: '缓存', text: menuInfo.value?.keepAlive ? '开启' : '关闭' }
+]);
 
 onMounted(() => {
   loadData();
@@ -45,18 +59,9 @@ async function loadData() {
     <template #contentBox>
       <NSkeleton v-if="loading" text :repeat="6" />
 
-      <NDescriptions v-else bordered label-placement="left" :column="2">
-        <NDescriptionsItem label="菜单名称">{{ menuInfo?.label || '-' }}</NDescriptionsItem>
-        <NDescriptionsItem label="菜单标识">{{ menuInfo?.key || '-' }}</NDescriptionsItem>
-        <NDescriptionsItem label="页面标识">{{ menuInfo?.routeKey || '-' }}</NDescriptionsItem>
-        <NDescriptionsItem label="页面路径">{{ menuInfo?.routePath || '-' }}</NDescriptionsItem>
-        <NDescriptionsItem label="菜单类型">{{ menuInfo?.menuType === 'DIRECTORY' ? '目录' : '菜单' }}</NDescriptionsItem>
-        <NDescriptionsItem label="布局方案">{{ menuInfo?.component || '自动匹配' }}</NDescriptionsItem>
-        <NDescriptionsItem label="图标">{{ menuInfo?.icon || '-' }}</NDescriptionsItem>
-        <NDescriptionsItem label="排序">{{ menuInfo?.sort ?? 0 }}</NDescriptionsItem>
-        <NDescriptionsItem label="状态">{{ menuInfo?.status === 1 ? '启用' : '禁用' }}</NDescriptionsItem>
-        <NDescriptionsItem label="缓存">{{ menuInfo?.keepAlive ? '开启' : '关闭' }}</NDescriptionsItem>
-      </NDescriptions>
+      <NEmpty v-else-if="!menuInfo" description="暂无菜单信息" />
+
+      <InfoGridCard v-else :items="detailItems" auto-columns :min-item-width="240" :max-columns="4" />
     </template>
   </InfoPageLayout>
 </template>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { ArrowBackOutline } from '@vicons/ionicons5';
-import { NButton, NDescriptions, NDescriptionsItem, NEmpty, NIcon, NSpin } from 'naive-ui';
-import DictTag from '@/components/common/DictTag.vue';
+import { NButton, NEmpty, NIcon, NSpin } from 'naive-ui';
+import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 import { fetchUserById } from '@/service/api';
 import type { UserVo } from '@/types/app';
@@ -17,6 +17,26 @@ const loading = ref(false);
 const detail = ref<UserVo | null>(null);
 
 const userId = computed(() => String(route.params.id || ''));
+const detailItems = computed(() => [
+  { label: '工号', text: detail.value?.employeeNo || '-' },
+  { label: '姓名', text: detail.value?.name || detail.value?.username || '-' },
+  { label: '登录账号', text: detail.value?.account || '-' },
+  { label: '所属部门', text: detail.value?.departmentName || '-' },
+  { label: '用户类型', dictCode: 'user_type', dictValue: detail.value?.userType, fallbackLabel: detail.value?.userTypeLabel || '-' },
+  { label: '岗位名称', dictCode: 'employee_position', dictValue: detail.value?.positionName, fallbackLabel: detail.value?.positionNameLabel || '-' },
+  { label: '部门负责人', text: detail.value?.leaderFlag ? '是' : '否' },
+  { label: '性别', dictCode: 'employee_gender', dictValue: detail.value?.gender },
+  { label: '出生日期', text: detail.value?.birthday || '-' },
+  { label: '手机号', text: detail.value?.phone || '-' },
+  { label: '邮箱', text: detail.value?.email || '-' },
+  { label: '头像地址', text: detail.value?.avatar || '-' },
+  { label: '入职日期', text: detail.value?.entryDate || '-' },
+  { label: '任职状态', dictCode: 'employee_job_status', dictValue: detail.value?.jobStatus },
+  { label: '工作状态', dictCode: 'employee_work_status', dictValue: detail.value?.workStatus },
+  { label: '账号状态', dictCode: 'employee_account_status', dictValue: detail.value?.accountStatus },
+  { label: '创建时间', text: detail.value?.createdAt || '-' },
+  { label: '更新时间', text: detail.value?.updatedAt || '-' }
+]);
 
 watch(userId, () => {
   loadDetail();
@@ -66,32 +86,7 @@ async function loadDetail() {
       <NSpin :show="loading">
         <NEmpty v-if="!detail" description="暂无人员信息" />
 
-        <NDescriptions v-else bordered label-placement="left" :column="2">
-          <NDescriptionsItem label="工号">{{ detail.employeeNo || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="姓名">{{ detail.name || detail.username || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="登录账号">{{ detail.account || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="所属部门">{{ detail.departmentName || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="用户类型"><DictTag dict-code="user_type" :value="detail.userType" :fallback-label="detail.userTypeLabel || '-'" /></NDescriptionsItem>
-          <NDescriptionsItem label="岗位名称"><DictTag dict-code="employee_position" :value="detail.positionName" :fallback-label="detail.positionNameLabel || '-'" /></NDescriptionsItem>
-          <NDescriptionsItem label="部门负责人">{{ detail.leaderFlag ? '是' : '否' }}</NDescriptionsItem>
-          <NDescriptionsItem label="性别"><DictTag dict-code="employee_gender" :value="detail.gender" /></NDescriptionsItem>
-          <NDescriptionsItem label="出生日期">{{ detail.birthday || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="手机号">{{ detail.phone || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="邮箱">{{ detail.email || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="头像地址">{{ detail.avatar || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="入职日期">{{ detail.entryDate || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="任职状态">
-            <DictTag dict-code="employee_job_status" :value="detail.jobStatus" />
-          </NDescriptionsItem>
-          <NDescriptionsItem label="工作状态">
-            <DictTag dict-code="employee_work_status" :value="detail.workStatus" />
-          </NDescriptionsItem>
-          <NDescriptionsItem label="账号状态">
-            <DictTag dict-code="employee_account_status" :value="detail.accountStatus" />
-          </NDescriptionsItem>
-          <NDescriptionsItem label="创建时间">{{ detail.createdAt || '-' }}</NDescriptionsItem>
-          <NDescriptionsItem label="更新时间">{{ detail.updatedAt || '-' }}</NDescriptionsItem>
-        </NDescriptions>
+        <InfoGridCard v-else :items="detailItems" auto-columns :min-item-width="250" :max-columns="4" />
       </NSpin>
     </template>
   </InfoPageLayout>

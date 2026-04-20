@@ -4,6 +4,7 @@ import { NButton, NDropdown, NIcon, NMenu, NSpace } from 'naive-ui';
 import type { MenuOption } from 'naive-ui';
 import { ColorPaletteOutline, LogOutOutline, MenuOutline, MoonOutline, SunnyOutline } from '@vicons/ionicons5';
 import AppIcon from '@/components/common/AppIcon.vue';
+import AssessmentTaskCenter from '@/components/layout/AssessmentTaskCenter.vue';
 import DarkModeContainer from '@/components/common/DarkModeContainer.vue';
 import type { AppMenuOption } from '@/types/app';
 
@@ -110,6 +111,8 @@ function toggleThemeMode() {
     </div>
 
     <NSpace class="header-actions" align="center" :size="16">
+      <AssessmentTaskCenter />
+
       <NButton quaternary circle :title="themeStore.darkMode ? '切换亮色' : '切换暗色'" @click="toggleThemeMode">
         <template #icon>
           <NIcon>
