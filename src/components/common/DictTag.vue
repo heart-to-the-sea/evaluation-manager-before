@@ -7,6 +7,7 @@ interface Props {
   dictCode: string;
   value?: string | number | null;
   fallbackLabel?: string | null;
+  overrideLabel?: string | null;
   defaultType?: DictTagType;
   customColor?: string | null;
   className?: string | null;
@@ -17,6 +18,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   value: null,
   fallbackLabel: '',
+  overrideLabel: '',
   defaultType: 'default',
   customColor: '',
   className: '',
@@ -31,9 +33,15 @@ const tagType = computed(() => props.defaultType);
 const className = computed(() => props.className || option.value?.raw?.className || '');
 const customColor = computed(() => props.customColor || option.value?.raw?.customColor || '');
 const text = computed(() => {
-  if (props.fallbackLabel) return props.fallbackLabel;
-  const label = option.value?.label || '';
+  const override = String(props.overrideLabel || '').trim();
+  if (override) return override;
+
+  const label = String(option.value?.label || '').trim();
   if (label) return label;
+
+  const fallback = String(props.fallbackLabel || '').trim();
+  if (fallback) return fallback;
+
   if (props.value === null || props.value === undefined || props.value === '') return '-';
   return String(props.value);
 });

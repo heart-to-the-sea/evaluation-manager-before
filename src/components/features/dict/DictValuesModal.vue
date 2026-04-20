@@ -138,7 +138,7 @@ async function handleSubmit() {
       </NFormItem>
       <NFormItem label="效果预览">
         <DictTag :dict-code="dictCode" :value="formData.value || null"
-          :fallback-label="formData.label || formData.value || '预览标签'" :custom-color="formData.customColor || ''"
+          :override-label="formData.label || formData.value || '预览标签'" :custom-color="formData.customColor || ''"
           :class-name="formData.className || ''" />
       </NFormItem>
       <NFormItem label="排序">

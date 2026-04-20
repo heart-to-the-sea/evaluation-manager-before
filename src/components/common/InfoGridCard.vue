@@ -84,7 +84,7 @@ onBeforeUnmount(() => {
             v-if="item.dictCode"
             :dict-code="item.dictCode"
             :value="item.dictValue"
-            :fallback-label="item.fallbackLabel || '-'"
+            :fallback-label="item.fallbackLabel"
           />
           <span v-else>{{ resolveText(item.text) }}</span>
         </div>

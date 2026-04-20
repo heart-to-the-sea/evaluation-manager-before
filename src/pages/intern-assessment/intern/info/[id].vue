@@ -73,7 +73,6 @@ const violationForm = reactive({
 });
 
 const exitForm = reactive({
-  exitType: 'dismissed',
   reason: ''
 });
 
@@ -427,9 +426,9 @@ const basicInfoItems = computed(() => [
     fallbackLabel: userDetail.value?.userTypeLabel || '-'
   },
   { label: '是否负责人', text: userDetail.value?.leaderFlag ? '是' : '否' },
-  { label: '入职状态', dictCode: 'employee_job_status', dictValue: userDetail.value?.jobStatus },
-  { label: '工作状态', dictCode: 'employee_work_status', dictValue: userDetail.value?.workStatus },
-  { label: '账号状态', dictCode: 'employee_account_status', dictValue: userDetail.value?.accountStatus },
+  { label: '入职状态', dictCode: 'employee_job_status', dictValue: userDetail.value?.jobStatus, fallbackLabel: userDetail.value?.jobStatusLabel || '' },
+  { label: '工作状态', dictCode: 'employee_work_status', dictValue: userDetail.value?.workStatus, fallbackLabel: userDetail.value?.workStatusLabel || '' },
+  { label: '账号状态', dictCode: 'employee_account_status', dictValue: userDetail.value?.accountStatus, fallbackLabel: userDetail.value?.accountStatusLabel || '' },
   { label: '更新时间', text: userDetail.value?.updatedAt || detail.value?.updatedAt || '-' }
 ]);
 
@@ -438,11 +437,11 @@ const trainingOverviewItems = computed(() => [
   { label: '培训开始时间', text: detail.value?.trainingStartDate || '-' },
   { label: '培训结束时间', text: detail.value?.trainingEndDate || '-' },
   { label: '当前培训阶段', text: detail.value?.currentStageName || '-' },
-  { label: '培训状态', dictCode: 'assessment_path_status', dictValue: detail.value?.status },
+  { label: '培训状态', dictCode: 'assessment_path_status', dictValue: detail.value?.status, fallbackLabel: detail.value?.statusLabel || '' },
   { label: '累计违规次数', text: String(totalViolationCount.value) },
   { label: '阶段数量', text: String(detail.value?.stages?.length || 0) },
   { label: '当前学习时间', text: resolveStudyDaysText(currentStage.value) },
-  { label: '当前阶段时间状态', dictCode: 'assessment_stage_timing_status', dictValue: currentStage.value?.timingStatus },
+  { label: '当前阶段时间状态', dictCode: 'assessment_stage_timing_status', dictValue: currentStage.value?.timingStatus, fallbackLabel: currentStage.value?.timingStatusLabel || '' },
   { label: '培训开始时间', text: currentStage.value?.startedAt || '-' },
   { label: '培训结束时间', text: currentStage.value?.endedAt || '-' },
   { label: '实际学习天数', text: resolveActualStudyDaysText(currentStage.value) },
@@ -961,19 +960,18 @@ async function handleSaveViolation() {
   }
 }
 
-function openExitDialog(exitType: 'dismissed' | 'voluntary') {
+function openExitDialog() {
   if (!detail.value?.userId) {
     window.$message?.warning('当前实习生信息不完整');
     return;
   }
-  exitForm.exitType = exitType;
   exitForm.reason = '';
   showExitDialog.value = true;
 }
 
 async function handleSaveExit() {
   if (!detail.value?.userId) return;
-  if (exitForm.exitType === 'dismissed' && !exitForm.reason.trim()) {
+  if (!exitForm.reason.trim()) {
     window.$message?.warning('请输入劝退理由');
     return;
   }
@@ -983,7 +981,7 @@ async function handleSaveExit() {
       pathId: detail.value.id,
       pathStageId: currentStage.value?.id,
       userId: detail.value.userId,
-      exitType: exitForm.exitType,
+      exitType: 'dismissed',
       reason: exitForm.reason.trim() || undefined
     });
     if (error) return;
@@ -1008,8 +1006,8 @@ async function handleSaveExit() {
 
     <template #actions>
       <NButton
+        v-if="canManageTraining && canAssessAction"
         type="primary"
-        :disabled="!canAssessAction"
         :loading="Boolean(currentStage?.id && actionLoadingStageId === currentStage.id)"
         @click="handleAssessCurrentStage"
       >
@@ -1018,11 +1016,8 @@ async function handleSaveExit() {
       <NButton v-if="canManageTraining" secondary type="warning" :disabled="!currentStage?.id" @click="openViolationDialog()">
         违规登记
       </NButton>
-      <NButton v-if="!isPathTerminated" secondary type="error" @click="openExitDialog('dismissed')">
+      <NButton v-if="canManageTraining" secondary type="error" @click="openExitDialog()">
         劝退处理
-      </NButton>
-      <NButton v-if="!isPathTerminated" @click="openExitDialog('voluntary')">
-        主动离职
       </NButton>
       <NButton @click="navigateTo('/intern-assessment/intern')">
         <template #icon>
@@ -1491,15 +1486,11 @@ async function handleSaveExit() {
       <NModal
         :show="showExitDialog"
         preset="card"
-        title="离场处理"
+        title="劝退处理"
         :style="{ width: '640px', maxWidth: 'calc(100vw - 32px)' }"
         @update:show="value => !value && (showExitDialog = false)"
       >
         <div class="stage-dialog-form">
-          <div class="stage-dialog-form__item">
-            <div class="stage-dialog-form__label">处理类型</div>
-            <DictSelect v-model:model-value="exitForm.exitType" dict-code="assessment_exit_type" />
-          </div>
           <div class="stage-dialog-form__item">
             <div class="stage-dialog-form__label">当前阶段</div>
             <NInput :value="currentStage?.stageName || detail?.currentStageName || '-'" disabled />
@@ -1509,12 +1500,12 @@ async function handleSaveExit() {
             <NInput :value="String(totalViolationCount)" disabled />
           </div>
           <div class="stage-dialog-form__item">
-            <div class="stage-dialog-form__label">{{ exitForm.exitType === 'dismissed' ? '劝退理由' : '备注说明' }}</div>
+            <div class="stage-dialog-form__label">劝退理由</div>
             <NInput
               v-model:value="exitForm.reason"
               type="textarea"
               :rows="4"
-              :placeholder="exitForm.exitType === 'dismissed' ? '请输入劝退理由' : '可填写主动离职说明'"
+              placeholder="请输入劝退理由"
             />
           </div>
         </div>
@@ -2359,4 +2350,3 @@ html.dark .stage-item__body {
   }
 }
 </style>
-

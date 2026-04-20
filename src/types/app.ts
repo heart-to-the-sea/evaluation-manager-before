@@ -151,8 +151,11 @@ export interface UserVo {
   leaderFlag?: boolean;
   entryDate?: string;
   jobStatus?: string;
+  jobStatusLabel?: string;
   workStatus?: string;
+  workStatusLabel?: string;
   accountStatus?: string;
+  accountStatusLabel?: string;
   currentAssessmentStage?: string;
   assessmentStatus?: string;
   assessmentTemplateName?: string;
@@ -457,6 +460,7 @@ export interface AssessmentInternPathStageVo {
   earliestAssessAt?: string;
   latestAssessAt?: string;
   timingStatus?: string;
+  timingStatusLabel?: string;
   timingDescription?: string;
   reviewedAt?: string;
   createdAt?: string;
@@ -639,6 +643,7 @@ export interface AssessmentInternPathVo {
   currentStageId?: string;
   currentStageName?: string;
   status?: string;
+  statusLabel?: string;
   createdAt?: string;
   updatedAt?: string;
   stages?: AssessmentInternPathStageVo[];
