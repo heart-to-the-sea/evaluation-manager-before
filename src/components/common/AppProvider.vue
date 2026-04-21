@@ -367,7 +367,12 @@ watch(
 </script>
 
 <template>
-  <NConfigProvider :locale="zhCN" :date-locale="dateZhCN" :theme="themeStore.darkMode ? darkTheme : undefined" :theme-overrides="themeOverrides">
+  <NConfigProvider
+    :locale="zhCN"
+    :date-locale="dateZhCN"
+    :theme="themeStore.darkMode ? darkTheme : undefined"
+    :theme-overrides="themeOverrides"
+  >
     <NLoadingBarProvider>
       <NDialogProvider>
         <NNotificationProvider>

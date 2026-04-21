@@ -7,6 +7,7 @@ import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import QuestionDialog from '@/components/features/intern-assessment/QuestionDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchAssessmentQuestionDelete, fetchAssessmentQuestionList, fetchAssessmentQuestionTemplateDownload, fetchAssessmentStageList } from '@/service/api';
 import type { AssessmentQuestionVo } from '@/types/app';
 
@@ -34,6 +35,12 @@ const stageOptions = ref<SelectOption[]>([]);
 const checkedRowKeys = ref<DataTableRowKey[]>([]);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const taskStore = useAssessmentTaskStore();
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData(), {
+  fieldMap: {
+    stageName: 'stageId'
+  }
+});
+const sortableColumnKeys = new Set(['stageId', 'questionType', 'difficulty', 'knowledgePoint', 'stem', 'score', 'status', 'updatedAt']);
 
 const pagination = reactive({
   page: 1,
@@ -53,7 +60,8 @@ const pagination = reactive({
   }
 });
 
-const columns = computed<DataTableColumns<RowData>>(() => [
+const columns = computed<DataTableColumns<RowData>>(() =>
+  ([
   {
     type: 'selection',
     fixed: 'left'
@@ -115,7 +123,21 @@ const columns = computed<DataTableColumns<RowData>>(() => [
       </div>
     )
   }
-]);
+] as DataTableColumns<RowData>).map(column => {
+    const columnKey = typeof column.key === 'string' ? column.key : '';
+    const mappedColumnKey = columnKey === 'stageName' ? 'stageId' : columnKey;
+    if (!sortableColumnKeys.has(mappedColumnKey)) {
+      return column;
+    }
+    return {
+      ...column,
+      key: columnKey,
+      sorter: createSorter(),
+      sortOrder: getSortOrder(mappedColumnKey),
+      renderSorter: createSorterRender(mappedColumnKey)
+    };
+  })
+);
 
 const moreOptions = computed<DropdownOption[]>(() => [
   { label: '导入题库', key: 'import' },
@@ -144,7 +166,7 @@ async function loadStageOptions() {
 async function loadData() {
   loading.value = true;
   try {
-    const { data, error } = await fetchAssessmentQuestionList({
+    const { data, error } = await fetchAssessmentQuestionList(appendSorter({
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
       stageId: searchParams.value.stageId || undefined,
@@ -152,7 +174,7 @@ async function loadData() {
       difficulty: searchParams.value.difficulty || undefined,
       stem: searchParams.value.stem || undefined,
       status: searchParams.value.status || undefined
-    });
+    }));
 
     if (error) {
       return;
@@ -324,8 +346,8 @@ async function handleFileInputChange(event: Event) {
     </template>
 
     <NDataTable :bordered="false" :single-line="false" :columns="columns" :data="tableData" :loading="loading"
-      :pagination="pagination" :row-key="row => row.key" :checked-row-keys="checkedRowKeys"
-      @update:checked-row-keys="handleCheckedRowKeysChange" flex-height :style="{ height: '100%' }" />
+      :pagination="pagination" :row-key="row => row.key" :checked-row-keys="checkedRowKeys" remote
+      @update:checked-row-keys="handleCheckedRowKeysChange" @update:sorter="handleSorter" flex-height :style="{ height: '100%' }" />
 
     <QuestionDialog :show="showDialog" :data="editData" :stage-options="stageOptions" @close="handleDialogClose" />
   </SearchTablePageLayout>

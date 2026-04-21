@@ -9,6 +9,7 @@ import PaperCreateDialog from '@/components/features/intern-assessment/PaperCrea
 import PaperInfoModal from '@/components/features/intern-assessment/PaperInfoModal.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 import {
+  fetchAssessmentPathEnd,
   fetchAssessmentPaperList,
   fetchAssessmentPathById,
   fetchAssessmentPathDailyCalendar,
@@ -45,6 +46,7 @@ const showStageEndDialog = ref(false);
 const showViolationDialog = ref(false);
 const showExitDialog = ref(false);
 const activePaperId = ref<string | null>(null);
+const activePaperReadonly = ref(true);
 const assessStage = ref<AssessmentInternPathStageVo | null>(null);
 const actionLoadingStageId = ref('');
 const endingStage = ref<AssessmentInternPathStageVo | null>(null);
@@ -312,8 +314,9 @@ const dailyCalendarRows = computed(() => {
     const dateText = formatDateToText(cursor);
     const raw = dayMap.get(dateText) || null;
     const inTraining = dateText >= startText && dateText <= endText;
-    const muted = !inTraining || Boolean(raw?.holidayFlag) || !raw?.pathStageId;
-    const clickable = Boolean(raw && (raw.reports?.length || raw.pathStageId || raw.holidayFlag));
+    const hasStageSchedule = Boolean(raw?.pathStageId || raw?.stageId || raw?.stageName);
+    const muted = !inTraining || Boolean(raw?.holidayFlag) || !hasStageSchedule;
+    const clickable = Boolean(raw && (raw.reports?.length || raw.pathStageId || raw.stageId || raw.holidayFlag));
     cells.push({
       key: dateText,
       isToday: dateText === formatDateDay(new Date().toISOString()),
@@ -604,6 +607,7 @@ function getStageDotClass(stage: AssessmentInternPathStageVo) {
   if (stage.status === 'in_progress' || stage.status === 'pending_review') return 'is-warning';
   if (stage.status === 'failed') return 'is-error';
   if (stage.status === 'skipped') return 'is-info';
+  if (stage.status === 'ended') return 'is-default';
   return 'is-default';
 }
 
@@ -613,6 +617,7 @@ function getStageResultText(stage: AssessmentInternPathStageVo) {
   if (stage.latestPaperPassFlag === false) return '未通过';
   if (stage.status === 'in_progress') return '培训中';
   if (stage.status === 'skipped') return '已跳过';
+  if (stage.status === 'ended') return '已结束';
   return '未开始培训';
 }
 
@@ -622,6 +627,7 @@ function getStageResultTagType(stage: AssessmentInternPathStageVo): 'default' | 
   if (stage.latestPaperPassFlag === false) return 'error';
   if (stage.status === 'in_progress') return 'warning';
   if (stage.status === 'skipped') return 'info';
+  if (stage.status === 'ended') return 'default';
   return 'default';
 }
 
@@ -698,6 +704,7 @@ function getDailyStatusTagType(status?: AssessmentPathDailyCalendarDayVo['report
 
 function getDailyStatusText(day?: AssessmentPathDailyCalendarDayVo | null) {
   if (!day) return '-';
+  if (day.stageStartedFlag === false) return '未开始';
   if (day.reportStatus === 'submitted') return '已提交';
   if (day.reportStatus === 'pending') return '未提交';
   if (day.reportStatus === 'holiday') return '节假日';
@@ -707,6 +714,10 @@ function getDailyStatusText(day?: AssessmentPathDailyCalendarDayVo | null) {
 
 function getDailyCellSummary(day?: AssessmentPathDailyCalendarDayVo | null) {
   if (!day) return '-';
+  if (day.assessDate) {
+    return `考核日期 ${formatDateDay(day.assessDate)}`;
+  }
+  if (day.stageStartedFlag === false) return '阶段未开始';
   if (day.submittedFlag) {
     return `日报 ${day.reports?.length || 0} 条`;
   }
@@ -818,6 +829,7 @@ async function handleSubmitEndStage() {
 function handleViewPaper(record: AssessmentPaperVo) {
   if (!record.id) return;
   activePaperId.value = record.id;
+  activePaperReadonly.value = record.status !== 'pending_review';
   showPaperDialog.value = true;
 }
 
@@ -830,6 +842,7 @@ function resolveStageActionMode(
   latestRecord: AssessmentPaperVo | null
 ): StageActionMode {
   if (!detail.value?.id || !detail.value?.userId || !stage || !canManageTraining.value) return 'none';
+  if (latestRecord?.id && latestRecord.status === 'pending_review') return 'review';
   if (['pending', 'failed'].includes(stage.status || '')) return stage.id ? 'start' : 'none';
   if (stage.status === 'pending_review') return latestRecord?.id ? 'review' : 'none';
   if (stage.status === 'in_progress') return 'create';
@@ -888,6 +901,27 @@ function handleAssessCurrentStage() {
   showAssessDialog.value = true;
 }
 
+function handleEndTraining() {
+  if (!detail.value?.id) return;
+  window.$dialog?.warning({
+    title: '结束培训',
+    content: '确认结束当前培训吗？结束后，当前未完成阶段及后续阶段都将标记为“已结束”，且本培训将不可继续推进。',
+    positiveText: '确认结束',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      actionLoadingStageId.value = detail.value?.id || 'path-end';
+      try {
+        const { error } = await fetchAssessmentPathEnd({ pathId: detail.value?.id });
+        if (error) return;
+        window.$message?.success('培训已结束');
+        await loadDetail();
+      } finally {
+        actionLoadingStageId.value = '';
+      }
+    }
+  });
+}
+
 async function handleAssessClose(submitted = false, paperId?: string) {
   showAssessDialog.value = false;
   assessStage.value = null;
@@ -903,6 +937,7 @@ async function handleAssessClose(submitted = false, paperId?: string) {
 function handlePaperDialogClose() {
   showPaperDialog.value = false;
   activePaperId.value = null;
+  activePaperReadonly.value = true;
 }
 
 async function handlePaperDialogRefresh() {
@@ -1015,6 +1050,14 @@ async function handleSaveExit() {
       </NButton>
       <NButton v-if="canManageTraining" secondary type="warning" :disabled="!currentStage?.id" @click="openViolationDialog()">
         违规登记
+      </NButton>
+      <NButton
+        v-if="canManageTraining"
+        secondary
+        :loading="actionLoadingStageId === detail?.id"
+        @click="handleEndTraining"
+      >
+        结束培训
       </NButton>
       <NButton v-if="canManageTraining" secondary type="error" @click="openExitDialog()">
         劝退处理
@@ -1213,7 +1256,7 @@ async function handleSaveExit() {
                                       :type="record.status === 'pending_review' ? 'warning' : 'primary'"
                                       @click="handleViewPaper(record)"
                                     >
-                                      查看详情
+                                      {{ record.status === 'pending_review' ? '阅卷' : '查看详情' }}
                                     </NButton>
                                   </div>
                                 </div>
@@ -1288,11 +1331,14 @@ async function handleSaveExit() {
                                 'daily-calendar-cell--today': cell?.isToday,
                                 'daily-calendar-cell--clickable': Boolean(cell?.clickable),
                                 'daily-calendar-cell--overtime': cell?.raw?.overtimeStageFlag,
+                                'daily-calendar-cell--planned': cell?.raw?.stageStartedFlag === false,
                                 'daily-calendar-cell--muted': cell?.muted
                               }"
                               :style="
                                 cell && !cell.muted && cell.raw && getDailyStageKey(cell.raw)
                                   ? {
+                                      '--daily-stage-background': cell.color?.background,
+                                      '--daily-stage-border': cell.color?.border,
                                       '--daily-stage-text': cell.color?.text,
                                       '--daily-stage-sub-text': cell.color?.subText || cell.color?.text,
                                       background: cell.color?.background,
@@ -1322,8 +1368,14 @@ async function handleSaveExit() {
                                   {{ cell.raw ? getDailyCellSummary(cell.raw) : '未进入培训区间' }}
                                 </div>
                                 <div class="daily-calendar-cell__tags">
+                                  <NTag v-if="cell.raw?.assessDate" size="small" :bordered="false" type="info">
+                                    考核 {{ formatDateDay(cell.raw.assessDate) }}
+                                  </NTag>
+                                  <NTag v-if="cell.raw?.passFlag === true" size="small" :bordered="false" type="success">通过</NTag>
+                                  <NTag v-else-if="cell.raw?.passFlag === false" size="small" :bordered="false" type="error">未通过</NTag>
                                   <NTag v-if="cell.raw?.overtimeStageFlag" size="small" :bordered="false" type="error">超时</NTag>
                                   <NTag v-if="cell.raw?.holidayFlag" size="small" :bordered="false">节假日</NTag>
+                                  <NTag v-if="cell.raw?.stageStartedFlag === false" size="small" :bordered="false">未开始</NTag>
                                   <NTag v-else-if="cell.muted" size="small" :bordered="false">休息/空白</NTag>
                                 </div>
                               </template>
@@ -1354,7 +1406,7 @@ async function handleSaveExit() {
         @close="handleAssessClose"
       />
 
-      <PaperInfoModal :show="showPaperDialog" :paper-id="activePaperId" :readonly="true" @close="handlePaperDialogClose" @refresh="handlePaperDialogRefresh" />
+      <PaperInfoModal :show="showPaperDialog" :paper-id="activePaperId" :readonly="activePaperReadonly" @close="handlePaperDialogClose" @refresh="handlePaperDialogRefresh" />
 
       <NModal
         :show="showDailyDetailDialog"
@@ -1437,9 +1489,12 @@ async function handleSaveExit() {
             <div class="stage-dialog-form__label">阶段评级</div>
             <DictSelect v-model:model-value="stageEndForm.rating" dict-code="assessment_stage_rating" />
           </div>
-          <div class="stage-dialog-form__item">
+          <div class="stage-dialog-form__item stage-dialog-form__item--switch">
             <div class="stage-dialog-form__label">自动开始下一阶段</div>
-            <NSwitch v-model:value="stageEndForm.autoStartNext" />
+            <div class="stage-dialog-switch">
+              <span class="stage-dialog-switch__text">{{ stageEndForm.autoStartNext ? '开启' : '关闭' }}</span>
+              <NSwitch v-model:value="stageEndForm.autoStartNext" />
+            </div>
           </div>
         </div>
         <template #action>
@@ -1758,6 +1813,24 @@ html.dark .daily-calendar-cell--muted {
     none;
 }
 
+.daily-calendar-cell--planned {
+  background: color-mix(in srgb, var(--daily-stage-background, rgb(246 248 251)) 72%, rgb(244 246 248) 28%) !important;
+  border-color: color-mix(in srgb, var(--daily-stage-border, rgb(216 222 230)) 72%, rgb(210 216 224) 28%) !important;
+  color: color-mix(in srgb, var(--daily-stage-text, rgb(76 86 99)) 72%, rgb(92 100 112) 28%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--daily-stage-border, rgb(216 222 230)) 46%, rgb(226 231 238) 54%),
+    0 4px 12px rgb(15 23 42 / 3%);
+}
+
+html.dark .daily-calendar-cell--planned {
+  background: color-mix(in srgb, var(--daily-stage-background, rgb(34 39 46)) 58%, rgb(38 42 48) 42%) !important;
+  border-color: color-mix(in srgb, var(--daily-stage-border, rgb(76 84 96)) 58%, rgb(82 90 102) 42%) !important;
+  color: color-mix(in srgb, var(--daily-stage-text, rgb(184 192 204)) 68%, rgb(172 180 192) 32%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--daily-stage-border, rgb(76 84 96)) 48%, rgb(82 90 102) 52%),
+    0 4px 12px rgb(0 0 0 / 16%);
+}
+
 .daily-calendar-cell--clickable {
   cursor: pointer;
   transition:
@@ -1771,6 +1844,12 @@ html.dark .daily-calendar-cell--muted {
   box-shadow:
     inset 0 0 0 1px rgb(var(--em-primary-color-rgb) / 0.18),
     0 10px 22px rgb(var(--em-primary-color-rgb) / 0.08);
+}
+
+.daily-calendar-cell--planned.daily-calendar-cell--clickable:hover {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--daily-stage-border, rgb(180 188 198)) 64%, rgb(176 184 194) 36%),
+    0 8px 18px rgb(15 23 42 / 8%);
 }
 
 .daily-calendar-cell--empty {
@@ -2266,10 +2345,42 @@ html.dark .stage-item__body {
   gap: 8px;
 }
 
+.stage-dialog-form__item--switch {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .stage-dialog-form__label {
   font-size: 14px;
   font-weight: 500;
   color: var(--n-text-color-2);
+}
+
+.stage-dialog-form__item--switch .stage-dialog-form__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.stage-dialog-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.stage-dialog-switch__text {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--n-text-color-3);
+  min-width: 28px;
+  text-align: right;
+}
+
+.stage-dialog-switch :deep(.n-switch) {
+  flex-shrink: 0;
 }
 
 .stage-dialog-actions {

@@ -14,6 +14,7 @@ import type {
   AssessmentScheduleCalcVo,
   AssessmentInternPathVo,
   AssessmentPaperCreateBo,
+  AssessmentPaperItemRegenerateBo,
   AssessmentPaperRegenerateBo,
   AssessmentPaperQueryBo,
   AssessmentPaperReviewBo,
@@ -142,6 +143,10 @@ export function fetchAssessmentPathDelete(id: string) {
   return request<void>({ url: URL.ASSESSMENT_PATH_DELETE, method: 'delete', params: { id } });
 }
 
+export function fetchAssessmentPathEnd(data: AssessmentStageActionBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_END, method: 'put', data });
+}
+
 export function fetchAssessmentPathStageStart(data: AssessmentStageActionBo) {
   return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_START, method: 'put', data });
 }
@@ -204,6 +209,10 @@ export function fetchAssessmentPaperCreate(data: AssessmentPaperCreateBo) {
 
 export function fetchAssessmentPaperRegenerate(data: AssessmentPaperRegenerateBo) {
   return request<string>({ url: URL.ASSESSMENT_PAPER_REGENERATE, method: 'post', data });
+}
+
+export function fetchAssessmentPaperItemRegenerate(data: AssessmentPaperItemRegenerateBo) {
+  return request<void>({ url: URL.ASSESSMENT_PAPER_ITEM_REGENERATE, method: 'put', data });
 }
 
 export function fetchAssessmentPaperReview(data: AssessmentPaperReviewBo) {

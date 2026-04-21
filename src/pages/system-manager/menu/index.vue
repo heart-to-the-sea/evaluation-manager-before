@@ -6,6 +6,7 @@ import type { DataTableColumns, DataTableRowKey } from 'naive-ui';
 import AppIcon from '@/components/common/AppIcon.vue';
 import MenuDialog from '@/components/features/menu/MenuDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchMenuDelete, fetchMenuTreeList } from '@/service/api';
 import type { MenuVo } from '@/types/app';
 
@@ -17,10 +18,12 @@ const menuTree = ref<MenuVo[]>([]);
 const expandedRowKeys = ref<string[]>([]);
 const showDialog = ref(false);
 const editingMenu = ref<Partial<MenuVo> | null>(null);
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['label', 'menuType', 'key', 'routeKey', 'routePath', 'sort', 'status', 'updatedAt']);
 
 const totalCount = computed(() => countMenuNodes(menuTree.value));
 
-const columns = computed<DataTableColumns<MenuVo>>(() => [
+const columns = computed<DataTableColumns<MenuVo>>(() => ([
   { title: '菜单名称', key: 'label', tree: true, minWidth: 220, render: row => row.label || '-' },
   {
     title: '类型', key: 'menuType', width: 90, align: 'center',
@@ -61,18 +64,29 @@ const columns = computed<DataTableColumns<MenuVo>>(() => [
       ]
     })
   }
-]);
+] as DataTableColumns<MenuVo>).map(column => {
+  const columnKey = typeof column.key === 'string' ? column.key : '';
+  if (!sortableColumnKeys.has(columnKey)) {
+    return column;
+  }
+  return {
+    ...column,
+    sorter: createSorter(),
+    sortOrder: getSortOrder(columnKey),
+    renderSorter: createSorterRender(columnKey)
+  };
+}));
 
 onMounted(() => { loadData(); });
 
 async function loadData() {
   loading.value = true;
   try {
-    const { data } = await fetchMenuTreeList({
+    const { data } = await fetchMenuTreeList(appendSorter({
       label: searchParams.value.label || undefined,
       routeKey: searchParams.value.routeKey || undefined,
       routePath: searchParams.value.routePath || undefined
-    });
+    }));
     menuTree.value = data || [];
     expandedRowKeys.value = collectExpandedKeys(menuTree.value);
   } finally {
@@ -166,8 +180,10 @@ function handleDialogClose(submitted = false) {
       :expanded-row-keys="expandedRowKeys"
       flex-height
       :row-key="row => row.id || ''"
+      remote
       :style="{ height: '100%' }"
       @update:expanded-row-keys="handleExpandedKeysChange"
+      @update:sorter="handleSorter"
     />
 
     <MenuDialog :show="showDialog" :data="editingMenu" :menu-tree="menuTree" @close="handleDialogClose" />

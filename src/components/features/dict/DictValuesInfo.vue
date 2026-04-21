@@ -6,6 +6,7 @@ import { fetchDictValuesAdd, fetchDictValuesBatchSave, fetchDictValuesDelete, fe
 import DictTag from '@/components/common/DictTag.vue';
 import { dictColorPresetValues } from '@/constants/dict';
 import { clearDictCache } from '@/composables/use-dict';
+import { useTableSorter } from '@/composables/use-table-sorter';
 
 interface RowData extends DictValuesVo {
   key: string;
@@ -26,8 +27,26 @@ const dataList = ref<RowData[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
 const snapshotMap = new Map<string, RowData>();
+const { handleSorter, getSortOrder, createSorter, createSorterRender } = useTableSorter();
 
 const editedRows = computed(() => dataList.value.filter(item => item.isNew || item.isEditing));
+
+function compareText(left?: string | null, right?: string | null) {
+  return String(left || '').localeCompare(String(right || ''), 'zh-CN');
+}
+
+function compareNumber(left?: number | string | null, right?: number | string | null) {
+  return Number(left || 0) - Number(right || 0);
+}
+
+const localSorterMap: Record<string, (left: RowData, right: RowData) => number> = {
+  label: (left, right) => compareText(left.label, right.label),
+  value: (left, right) => compareText(left.value, right.value),
+  customColor: (left, right) => compareText(left.customColor, right.customColor),
+  className: (left, right) => compareText(left.className, right.className),
+  sort: (left, right) => compareNumber(left.sort, right.sort),
+  status: (left, right) => compareText(left.status, right.status)
+};
 
 function renderColorSwatch(color?: string | null, emptyText = '-') {
   if (!color) {
@@ -54,7 +73,7 @@ function renderColorEditor(row: RowData) {
   );
 }
 
-const columns = ref<DataTableColumns<RowData>>([
+const columns = computed<DataTableColumns<RowData>>(() => ([
   { title: '#', key: 'index', width: 60, render: (_, index) => String(index + 1) },
   {
     title: '标签',
@@ -163,7 +182,21 @@ const columns = ref<DataTableColumns<RowData>>([
       </div>
     )
   }
-]);
+].map(column => {
+  const columnKey = typeof column.key === 'string' ? column.key : '';
+  const sorter = localSorterMap[columnKey];
+  return sorter
+    ? {
+        ...column,
+        sorter: {
+          ...createSorter(),
+          compare: sorter
+        },
+        sortOrder: getSortOrder(columnKey),
+        renderSorter: createSorterRender(columnKey)
+      }
+    : column;
+})));
 
 watch(
   () => [props.show, props.dictCode],
@@ -325,7 +358,7 @@ async function handleBatchSave() {
         </NSpace>
       </NSpace>
 
-      <NDataTable :columns="columns" :data="dataList" :loading="loading" max-height="520" bordered />
+      <NDataTable :columns="columns" :data="dataList" :loading="loading" max-height="520" bordered @update:sorter="handleSorter" />
     </NSpace>
 
     <template #footer>

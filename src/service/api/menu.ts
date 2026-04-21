@@ -6,7 +6,7 @@ export function fetchMenuList(params: MenuBo) {
   return request<PageResult<MenuVo>>({ url: URL.MENU_LIST, method: 'get', params });
 }
 
-export function fetchMenuTreeList(params?: Pick<MenuBo, 'label' | 'routeKey' | 'routePath' | 'status'>) {
+export function fetchMenuTreeList(params?: Partial<MenuBo>) {
   return request<MenuVo[]>({ url: URL.MENU_TREE_LIST, method: 'get', params });
 }
 

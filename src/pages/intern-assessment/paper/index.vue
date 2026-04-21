@@ -7,6 +7,7 @@ import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchAssessmentPaperList, fetchAssessmentPaperRegenerate, fetchAssessmentPathList, fetchUserOptions } from '@/service/api';
 import type { AssessmentPaperVo, UserOptionVo } from '@/types/app';
 
@@ -30,6 +31,8 @@ const showCreateDialog = ref(false);
 const regenerateId = ref('');
 const userOptions = ref<UserOptionVo[]>([]);
 const pathOptions = ref<SelectOption[]>([]);
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['userName', 'stageName', 'status', 'questionTotal', 'correctTotal', 'score', 'passFlag', 'reviewedAt', 'createdAt']);
 
 const pagination = reactive({
   page: 1,
@@ -56,7 +59,8 @@ const userSelectOptions = computed<SelectOption[]>(() =>
   }))
 );
 
-const columns = computed<DataTableColumns<RowData>>(() => [
+const columns = computed<DataTableColumns<RowData>>(() =>
+  ([
   {
     title: '#',
     key: 'index',
@@ -108,7 +112,19 @@ const columns = computed<DataTableColumns<RowData>>(() => [
       </div>
     )
   }
-]);
+] as DataTableColumns<RowData>).map(column => {
+    const columnKey = typeof column.key === 'string' ? column.key : '';
+    if (!sortableColumnKeys.has(columnKey)) {
+      return column;
+    }
+    return {
+      ...column,
+      sorter: createSorter(),
+      sortOrder: getSortOrder(columnKey),
+      renderSorter: createSorterRender(columnKey)
+    };
+  })
+);
 
 onMounted(async () => {
   await loadUsers();
@@ -145,13 +161,13 @@ async function loadPathOptions() {
 async function loadData() {
   loading.value = true;
   try {
-    const { data, error } = await fetchAssessmentPaperList({
+    const { data, error } = await fetchAssessmentPaperList(appendSorter({
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
       userId: searchParams.value.userId || undefined,
       pathId: searchParams.value.pathId || undefined,
       status: searchParams.value.status || undefined
-    });
+    }));
     if (error) {
       return;
     }
@@ -254,8 +270,10 @@ function handleRegenerate(row: RowData) {
       :loading="loading"
       :pagination="pagination"
       :row-key="row => row.key"
+      remote
       flex-height
       :style="{ height: '100%' }"
+      @update:sorter="handleSorter"
     />
 
     <PaperCreateDialog :show="showCreateDialog" :user-options="userOptions" @close="handleCreateClose" />

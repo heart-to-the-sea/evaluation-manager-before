@@ -7,6 +7,7 @@ import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import TemplateDialog from '@/components/features/intern-assessment/TemplateDialog.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchAssessmentStageList, fetchAssessmentTemplateDelete, fetchAssessmentTemplateList } from '@/service/api';
 import type { AssessmentPathTemplateStageVo, AssessmentPathTemplateVo, AssessmentStageRuleVo, AssessmentStageVo } from '@/types/app';
 
@@ -57,6 +58,8 @@ const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentPathTemplateVo | null>(null);
 const stageList = ref<AssessmentStageVo[]>([]);
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['name', 'stageCount', 'status', 'description', 'updatedAt']);
 
 const pagination = reactive({
   page: 1,
@@ -76,7 +79,8 @@ const pagination = reactive({
   }
 });
 
-const columns = computed<DataTableColumns<RowData>>(() => [
+const columns = computed<DataTableColumns<RowData>>(() =>
+  ([
   {
     title: '#',
     key: 'index',
@@ -125,7 +129,19 @@ const columns = computed<DataTableColumns<RowData>>(() => [
       </div>
     )
   }
-]);
+] as DataTableColumns<RowData>).map(column => {
+    const columnKey = typeof column.key === 'string' ? column.key : '';
+    if (!sortableColumnKeys.has(columnKey)) {
+      return column;
+    }
+    return {
+      ...column,
+      sorter: createSorter(),
+      sortOrder: getSortOrder(columnKey),
+      renderSorter: createSorterRender(columnKey)
+    };
+  })
+);
 
 onMounted(async () => {
   await loadStageList();
@@ -206,12 +222,12 @@ async function loadStageList() {
 async function loadData() {
   loading.value = true;
   try {
-    const { data, error } = await fetchAssessmentTemplateList({
+    const { data, error } = await fetchAssessmentTemplateList(appendSorter({
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
       name: searchParams.value.name || undefined,
       status: searchParams.value.status || undefined
-    });
+    }));
 
     if (error) return;
 
@@ -300,8 +316,10 @@ async function handleDialogClose(submitted = false) {
       :loading="loading"
       :pagination="pagination"
       :row-key="row => row.key"
+      remote
       flex-height
       :style="{ height: '100%' }"
+      @update:sorter="handleSorter"
     />
 
     <TemplateDialog :show="showDialog" :data="editData" :stage-list="stageList" @close="handleDialogClose" />

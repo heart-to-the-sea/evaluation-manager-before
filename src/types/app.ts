@@ -55,6 +55,13 @@ export interface PageResult<T> {
   current: number;
 }
 
+export interface PageQuery {
+  pageNum?: number;
+  pageSize?: number;
+  sortField?: string;
+  sortOrder?: 'ascend' | 'descend' | 'asc' | 'desc';
+}
+
 export interface DictVo {
   id?: string;
   name?: string;
@@ -67,9 +74,7 @@ export interface DictVo {
   updatedAt?: string;
 }
 
-export interface DictBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface DictBo extends PageQuery {
   id?: string;
   name?: string;
   code?: string;
@@ -113,9 +118,7 @@ export interface MenuVo {
   children?: MenuVo[];
 }
 
-export interface MenuBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface MenuBo extends PageQuery {
   id?: string;
   parentId?: string;
   key?: string;
@@ -165,9 +168,7 @@ export interface UserVo {
   updatedAt?: string;
 }
 
-export interface UserBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface UserBo extends PageQuery {
   id?: string;
   employeeNo?: string;
   name?: string;
@@ -214,6 +215,8 @@ export interface DepartmentVo {
 }
 
 export interface DepartmentBo {
+  sortField?: string;
+  sortOrder?: 'ascend' | 'descend' | 'asc' | 'desc';
   id?: string;
   parentId?: string;
   name?: string;
@@ -287,9 +290,7 @@ export interface AssessmentStageVo {
   rules?: AssessmentStageRuleVo[];
 }
 
-export interface AssessmentStageBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface AssessmentStageBo extends PageQuery {
   id?: string;
   code?: string;
   name?: string;
@@ -339,9 +340,7 @@ export interface AssessmentPathTemplateVo {
   stages?: AssessmentPathTemplateStageVo[];
 }
 
-export interface AssessmentPathTemplateBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface AssessmentPathTemplateBo extends PageQuery {
   id?: string;
   name?: string;
   description?: string;
@@ -385,9 +384,7 @@ export interface AssessmentQuestionVo {
   options?: AssessmentQuestionOptionVo[];
 }
 
-export interface AssessmentQuestionBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface AssessmentQuestionBo extends PageQuery {
   id?: string;
   ids?: string[];
   stageId?: string;
@@ -479,6 +476,7 @@ export interface AssessmentInternPathStageBo {
 }
 
 export interface AssessmentStageActionBo {
+  pathId?: string;
   pathStageId?: string;
   rating?: string;
   autoStartNext?: boolean;
@@ -517,6 +515,10 @@ export interface AssessmentPathDailyCalendarDayVo {
   stageName?: string;
   stageColor?: string;
   stageStatus?: string;
+  stageStartedFlag?: boolean;
+  assessDate?: string;
+  passFlag?: boolean;
+  rating?: string;
   holidayFlag?: boolean;
   expectedReportFlag?: boolean;
   submittedFlag?: boolean;
@@ -649,9 +651,7 @@ export interface AssessmentInternPathVo {
   stages?: AssessmentInternPathStageVo[];
 }
 
-export interface AssessmentInternPathBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface AssessmentInternPathBo extends PageQuery {
   id?: string;
   userId?: string;
   templateId?: string;
@@ -724,9 +724,7 @@ export interface AssessmentPaperVo {
   items?: AssessmentPaperItemVo[];
 }
 
-export interface AssessmentPaperQueryBo {
-  pageNum?: number;
-  pageSize?: number;
+export interface AssessmentPaperQueryBo extends PageQuery {
   userId?: string;
   pathId?: string;
   pathStageId?: string;
@@ -738,10 +736,24 @@ export interface AssessmentPaperCreateBo {
   userId?: string;
   pathId?: string;
   pathStageId?: string;
+  difficulty?: string;
+  knowledgePoints?: string;
+  questionIds?: string[];
 }
 
 export interface AssessmentPaperRegenerateBo {
   paperId?: string;
+  difficulty?: string;
+  knowledgePoints?: string;
+  questionIds?: string[];
+}
+
+export interface AssessmentPaperItemRegenerateBo {
+  paperId?: string;
+  paperItemId?: string;
+  difficulty?: string;
+  knowledgePoints?: string;
+  questionId?: string;
 }
 
 export interface AssessmentPaperItemReviewBo {

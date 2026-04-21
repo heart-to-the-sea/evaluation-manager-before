@@ -3,6 +3,7 @@ import { computed, h, onMounted, reactive, ref } from 'vue';
 import { NButton, NDataTable, NDatePicker, NEmpty, NGrid, NGi, NModal, NSpace, NSelect, NTag, useThemeVars } from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchAssessmentDailyReportCalendar, fetchAssessmentDailyReportDateDetail, fetchAssessmentTemplateList, fetchUserOptions } from '@/service/api';
 import type {
   AssessmentDailyReportCalendarDayVo,
@@ -31,12 +32,30 @@ const detailData = ref<AssessmentDailyReportDateDetailVo | null>(null);
 const detailDate = ref('');
 const templateOptions = ref<SelectOption[]>([]);
 const userOptions = ref<UserOptionVo[]>([]);
+const detailTableSorter = useTableSorter();
 
 const searchParams = reactive({
   month: formatMonthValue(monthPickerValue.value),
   templateId: null as string | null,
   userId: null as string | null
 });
+
+function compareText(left?: string | null, right?: string | null) {
+  return String(left || '').localeCompare(String(right || ''), 'zh-CN');
+}
+
+const detailSorterMap: Record<string, (left: AssessmentDailyReportDetailItemVo, right: AssessmentDailyReportDetailItemVo) => number> = {
+  userName: (left, right) => compareText(left.userName, right.userName),
+  employeeNo: (left, right) => compareText(left.employeeNo, right.employeeNo),
+  templateName: (left, right) => compareText(left.templateName, right.templateName),
+  stageName: (left, right) => compareText(left.stageName, right.stageName),
+  submitted: (left, right) => Number(Boolean(left.submitted)) - Number(Boolean(right.submitted)),
+  updatedAt: (left, right) => compareText(left.updatedAt, right.updatedAt),
+  content: (left, right) => compareText(left.content, right.content),
+  problem: (left, right) => compareText(left.problem, right.problem),
+  plan: (left, right) => compareText(left.plan, right.plan),
+  remark: (left, right) => compareText(left.remark, right.remark)
+};
 
 const weekdayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -72,7 +91,7 @@ const weekRowCount = computed(() => {
   return count > 0 ? count : 5;
 });
 
-const detailColumns = computed<DataTableColumns<AssessmentDailyReportDetailItemVo>>(() => [
+const detailColumns = computed<DataTableColumns<AssessmentDailyReportDetailItemVo>>(() => ([
   {
     title: '姓名',
     key: 'userName',
@@ -143,7 +162,22 @@ const detailColumns = computed<DataTableColumns<AssessmentDailyReportDetailItemV
     minWidth: 180,
     render: row => row.remark || '-'
   }
-]);
+] as DataTableColumns<AssessmentDailyReportDetailItemVo>).map(column => {
+  const columnKey = typeof column.key === 'string' ? column.key : '';
+  const sorter = detailSorterMap[columnKey];
+  if (!sorter) {
+    return column;
+  }
+  return {
+    ...column,
+    sorter: {
+      ...detailTableSorter.createSorter(),
+      compare: sorter
+    },
+    sortOrder: detailTableSorter.getSortOrder(columnKey),
+    renderSorter: detailTableSorter.createSorterRender(columnKey)
+  };
+}));
 
 onMounted(async () => {
   await Promise.all([loadTemplateOptions(), loadUserOptions()]);
@@ -332,6 +366,7 @@ function dayStatusText(day: AssessmentDailyReportCalendarDayVo) {
         :pagination="false"
         flex-height
         :max-height="520"
+        @update:sorter="detailTableSorter.handleSorter"
       />
     </NModal>
   </SearchTablePageLayout>

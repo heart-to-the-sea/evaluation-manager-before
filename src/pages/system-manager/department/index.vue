@@ -7,6 +7,7 @@ import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import DepartmentDialog from '@/components/features/department/DepartmentDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchDepartmentDelete, fetchDepartmentTreeList } from '@/service/api';
 import type { DepartmentVo } from '@/types/app';
 
@@ -24,10 +25,12 @@ const departmentTree = ref<DepartmentVo[]>([]);
 const expandedRowKeys = ref<string[]>([]);
 const showDialog = ref(false);
 const editData = ref<DepartmentVo | null>(null);
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['name', 'status', 'sort', 'remark', 'updatedAt']);
 
 const totalCount = computed(() => countDepartmentNodes(departmentTree.value));
 
-const columns = computed<DataTableColumns<DepartmentVo>>(() => [
+const columns = computed<DataTableColumns<DepartmentVo>>(() => ([
   {
     title: '部门名称',
     key: 'name',
@@ -97,7 +100,18 @@ const columns = computed<DataTableColumns<DepartmentVo>>(() => [
       </div>
     )
   }
-]);
+] as DataTableColumns<DepartmentVo>).map(column => {
+  const columnKey = typeof column.key === 'string' ? column.key : '';
+  if (!sortableColumnKeys.has(columnKey)) {
+    return column;
+  }
+  return {
+    ...column,
+    sorter: createSorter(),
+    sortOrder: getSortOrder(columnKey),
+    renderSorter: createSorterRender(columnKey)
+  };
+}));
 
 onMounted(() => {
   loadData();
@@ -122,10 +136,10 @@ async function loadData() {
   loading.value = true;
 
   try {
-    const { data, error } = await fetchDepartmentTreeList({
+    const { data, error } = await fetchDepartmentTreeList(appendSorter({
       name: searchParams.value.name || undefined,
       status: searchParams.value.status || undefined
-    });
+    }));
 
     if (error) {
       return;
@@ -248,9 +262,11 @@ async function handleDialogClose(submitted = false) {
       :pagination="false"
       :expanded-row-keys="expandedRowKeys"
       :row-key="row => row.id || ''"
+      remote
       flex-height
       :style="{ height: '100%' }"
       @update:expanded-row-keys="handleExpandedKeysChange"
+      @update:sorter="handleSorter"
     />
 
     <DepartmentDialog :show="showDialog" :data="editData" :department-tree="departmentTree" @close="handleDialogClose" />

@@ -7,6 +7,7 @@ import { fetchDictDelete, fetchDictList } from '@/service/api';
 import AppendDialog from '@/components/features/dict/AppendDialog.vue';
 import DictValuesInfo from '@/components/features/dict/DictValuesInfo.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 
 definePageMeta({
   title: '字典管理'
@@ -28,6 +29,8 @@ const showDictValuesInfo = ref(false);
 const editData = ref<DictVo | null>(null);
 const currentDictCode = ref('');
 const currentDictId = ref('');
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['name', 'code', 'status', 'createdAt', 'updatedAt', 'description']);
 
 const pagination = reactive({
   page: 1,
@@ -47,7 +50,7 @@ const pagination = reactive({
   }
 });
 
-const columns = ref<DataTableColumns<RowData>>([
+const columns = computed<DataTableColumns<RowData>>(() => ([
   { type: 'selection', width: 48, fixed: 'left' },
   {
     title: '#',
@@ -99,7 +102,18 @@ const columns = ref<DataTableColumns<RowData>>([
       </div>
     )
   }
-]);
+].map(column => {
+  const columnKey = typeof column.key === 'string' ? column.key : '';
+  if (!sortableColumnKeys.has(columnKey)) {
+    return column;
+  }
+  return {
+    ...column,
+    sorter: createSorter(),
+    sortOrder: getSortOrder(columnKey),
+    renderSorter: createSorterRender(columnKey)
+  };
+})));
 
 onMounted(() => {
   loadData();
@@ -109,12 +123,12 @@ async function loadData() {
   loading.value = true;
 
   try {
-    const { data } = await fetchDictList({
+    const { data } = await fetchDictList(appendSorter({
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
       name: searchParams.value.name || undefined,
       code: searchParams.value.code || undefined
-    });
+    }));
 
     tableData.value = (data?.records || []).map((item, index) => ({
       ...item,
@@ -197,12 +211,14 @@ function handleAppendClose() {
     <NDataTable
       :bordered="false"
       :single-line="false"
+      remote
       :columns="columns"
       :data="tableData"
       :loading="loading"
       :pagination="pagination"
       flex-height
       :row-key="row => row.key"
+      @update:sorter="handleSorter"
       :style="{ height: '100%' }"
     />
 

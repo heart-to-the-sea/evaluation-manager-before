@@ -21,6 +21,7 @@ import PaperCreateDialog from '@/components/features/intern-assessment/PaperCrea
 import PathDialog from '@/components/features/intern-assessment/PathDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import { useDict } from '@/composables/use-dict';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import {
   fetchAssessmentPathDelete,
   fetchAssessmentPathList,
@@ -80,6 +81,7 @@ const TEXT = {
   failed: '未通过',
   inProgress: '培训中',
   skipped: '已跳过',
+  ended: '已结束',
   notStarted: '未开始培训',
   deleteConfirm: '确认删除该培训计划吗？',
   deleteSuccess: '培训计划删除成功'
@@ -99,6 +101,8 @@ const editData = ref<AssessmentInternPathVo | null>(null);
 const defaultCreateUserId = ref<string | null>(null);
 const defaultCreatePathId = ref<string | null>(null);
 const defaultCreatePathStageId = ref<string | null>(null);
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['templateName', 'trainingStartDate', 'trainingEndDate', 'status', 'updatedAt']);
 
 const searchParams = ref({
   userId: (route.query.userId as string) || null,
@@ -134,7 +138,7 @@ const userSelectOptions = computed<SelectOption[]>(() =>
   }))
 );
 
-const columns = computed<DataTableColumns<RowData>>(() => [
+const columns = computed<DataTableColumns<RowData>>(() => ([
   {
     title: '#',
     key: 'index',
@@ -225,7 +229,18 @@ const columns = computed<DataTableColumns<RowData>>(() => [
       </div>
     )
   }
-]);
+] as DataTableColumns<RowData>).map(column => {
+  const columnKey = typeof column.key === 'string' ? column.key : '';
+  if (!sortableColumnKeys.has(columnKey)) {
+    return column;
+  }
+  return {
+    ...column,
+    sorter: createSorter(),
+    sortOrder: getSortOrder(columnKey),
+    renderSorter: createSorterRender(columnKey)
+  };
+}));
 
 watch(
   () => route.query.userId,
@@ -279,13 +294,13 @@ async function loadTemplateOptions() {
 async function loadData() {
   loading.value = true;
   try {
-    const { data, error } = await fetchAssessmentPathList({
+    const { data, error } = await fetchAssessmentPathList(appendSorter({
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
       userId: searchParams.value.userId || undefined,
       templateId: searchParams.value.templateId || undefined,
       status: searchParams.value.status || undefined
-    });
+    }));
     if (error) return;
 
     tableData.value = (data?.records || []).map((item, index) => ({
@@ -443,6 +458,15 @@ function getStageVisual(stage: AssessmentInternPathStageVo) {
     };
   }
 
+  if (stage.status === 'ended') {
+    return {
+      dotColor: '#8c8c8c',
+      ringColor: 'rgb(140 140 140 / 16%)',
+      borderColor: 'rgb(140 140 140 / 28%)',
+      lineColor: 'rgb(140 140 140 / 40%)'
+    };
+  }
+
   return {
     dotColor: 'rgb(var(--layout-bg-color))',
     ringColor: 'rgb(var(--border-color) / 18%)',
@@ -489,6 +513,7 @@ function resolveStageResultText(stage: AssessmentInternPathStageVo) {
   if (stage.latestPaperPassFlag === false) return TEXT.failed;
   if (stage.status === 'in_progress') return TEXT.inProgress;
   if (stage.status === 'skipped') return TEXT.skipped;
+  if (stage.status === 'ended') return TEXT.ended;
   return TEXT.notStarted;
 }
 
@@ -627,8 +652,10 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
       :loading="loading"
       :pagination="pagination"
       :row-key="row => row.key"
+      remote
       flex-height
       :style="{ height: '100%' }"
+      @update:sorter="handleSorter"
     />
 
     <PathDialog

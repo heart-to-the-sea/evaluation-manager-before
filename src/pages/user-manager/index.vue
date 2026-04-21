@@ -7,6 +7,7 @@ import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import AppendDialog from '@/components/features/user/AppendDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchDepartmentTreeList, fetchUserDelete, fetchUserList } from '@/service/api';
 import type { DepartmentVo, UserVo } from '@/types/app';
 
@@ -67,8 +68,11 @@ const pagination = reactive({
 });
 
 const departmentOptions = computed(() => buildDepartmentOptions(departmentTree.value));
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['employeeNo', 'name', 'userType', 'gender', 'phone', 'positionName', 'leaderFlag', 'entryDate', 'jobStatus', 'workStatus', 'accountStatus', 'createdAt']);
 
-const columns = computed<DataTableColumns<RowData>>(() => [
+const columns = computed<DataTableColumns<RowData>>(() =>
+  ([
   { type: 'selection', width: 48, fixed: 'left' },
   {
     title: '#',
@@ -158,7 +162,19 @@ const columns = computed<DataTableColumns<RowData>>(() => [
       </div>
     )
   }
-]);
+] as DataTableColumns<RowData>).map(column => {
+    const columnKey = typeof column.key === 'string' ? column.key : '';
+    if (!sortableColumnKeys.has(columnKey)) {
+      return column;
+    }
+    return {
+      ...column,
+      sorter: createSorter(),
+      sortOrder: getSortOrder(columnKey),
+      renderSorter: createSorterRender(columnKey)
+    };
+  })
+);
 
 onMounted(async () => {
   await loadDepartmentTree();
@@ -214,7 +230,7 @@ async function loadData() {
 
   try {
     const dateRange = formatDateRange(searchParams.value.dateRange);
-    const { data, error } = await fetchUserList({
+    const { data, error } = await fetchUserList(appendSorter({
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
       employeeNo: searchParams.value.employeeNo || undefined,
@@ -227,7 +243,7 @@ async function loadData() {
       accountStatus: searchParams.value.accountStatus || undefined,
       entryDateStart: dateRange.start,
       entryDateEnd: dateRange.end
-    });
+    }));
 
     if (error) {
       return;
@@ -353,11 +369,13 @@ async function handleRefresh() {
     <NDataTable
       :bordered="false"
       :single-line="false"
+      remote
       :columns="columns"
       :data="tableData"
       :loading="loading"
       :pagination="pagination"
       :row-key="row => row.key"
+      @update:sorter="handleSorter"
       flex-height
       :style="{ height: '100%' }"
     />

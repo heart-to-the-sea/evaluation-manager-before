@@ -7,6 +7,7 @@ import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import StageDialog from '@/components/features/intern-assessment/StageDialog.vue';
+import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchAssessmentStageDelete, fetchAssessmentStageList } from '@/service/api';
 import type { AssessmentStageVo } from '@/types/app';
 
@@ -28,6 +29,8 @@ const loading = ref(false);
 const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentStageVo | null>(null);
+const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
+const sortableColumnKeys = new Set(['code', 'name', 'passScore', 'sort', 'status', 'description', 'updatedAt']);
 
 const pagination = reactive({
   page: 1,
@@ -47,7 +50,8 @@ const pagination = reactive({
   }
 });
 
-const columns = computed<DataTableColumns<RowData>>(() => [
+const columns = computed<DataTableColumns<RowData>>(() =>
+  ([
   {
     title: '#',
     key: 'index',
@@ -112,7 +116,19 @@ const columns = computed<DataTableColumns<RowData>>(() => [
       </div>
     )
   }
-]);
+] as DataTableColumns<RowData>).map(column => {
+    const columnKey = typeof column.key === 'string' ? column.key : '';
+    if (!sortableColumnKeys.has(columnKey)) {
+      return column;
+    }
+    return {
+      ...column,
+      sorter: createSorter(),
+      sortOrder: getSortOrder(columnKey),
+      renderSorter: createSorterRender(columnKey)
+    };
+  })
+);
 
 onMounted(() => {
   loadData();
@@ -122,13 +138,13 @@ async function loadData() {
   loading.value = true;
 
   try {
-    const { data, error } = await fetchAssessmentStageList({
+    const { data, error } = await fetchAssessmentStageList(appendSorter({
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
       code: searchParams.value.code || undefined,
       name: searchParams.value.name || undefined,
       status: searchParams.value.status || undefined
-    });
+    }));
 
     if (error) {
       return;
@@ -228,11 +244,13 @@ async function handleDialogClose(submitted = false) {
     <NDataTable
       :bordered="false"
       :single-line="false"
+      remote
       :columns="columns"
       :data="tableData"
       :loading="loading"
       :pagination="pagination"
       :row-key="row => row.key"
+      @update:sorter="handleSorter"
       flex-height
       :style="{ height: '100%' }"
     />
