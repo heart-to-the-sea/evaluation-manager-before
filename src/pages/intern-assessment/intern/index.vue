@@ -182,7 +182,7 @@ const columns = computed<DataTableColumns<RowData>>(() => ([
     title: TEXT.progress,
     key: 'stages',
     minWidth: 420,
-    render: row => renderStageProgress(row.stages || [])
+    render: row => renderStageProgress(row.stages || [], row)
   },
   {
     title: TEXT.updatedAt,
@@ -201,17 +201,17 @@ const columns = computed<DataTableColumns<RowData>>(() => ([
         <NButton size="small" quaternary type="primary" onClick={() => handleViewPath(row)}>
           {TEXT.detail}
         </NButton>
-        {!isCompletedPath(row) && (
+        {canRegisterViolation(row) && (
           <NButton size="small" quaternary type="warning" disabled={!canRegisterViolation(row)} onClick={() => handleRegisterViolation(row)}>
             {TEXT.violation}
           </NButton>
         )}
-        {!isCompletedPath(row) && (
+        {canAssessPath(row) && (
           <NButton size="small" quaternary type="primary" onClick={() => handleCreatePaper(row)}>
             {getPaperActionText(row)}
           </NButton>
         )}
-        {!isCompletedPath(row) && (
+        {canEditPath(row) && (
           <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>
             {TEXT.edit}
           </NButton>
@@ -344,11 +344,34 @@ function handleViewPath(row: RowData) {
 }
 
 function canRegisterViolation(row: RowData) {
-  return Boolean(row.id && !['completed', 'dismissed', 'voluntary_resigned'].includes(row.status || ''));
+  if (!row.id || !['in_progress', 'pending_review'].includes(row.status || '')) return false;
+  const currentStage = getCurrentStageForRow(row);
+  return Boolean(currentStage?.id && ['in_progress', 'failed', 'pending_review'].includes(currentStage.status || ''));
 }
 
 function isCompletedPath(row: RowData) {
   return row.status === 'completed';
+}
+
+function isDismissedPath(row: RowData) {
+  return row.status === 'dismissed';
+}
+
+function hasAnyPaper(row: RowData) {
+  return Boolean(row.stages?.some(item => item.latestPaperId));
+}
+
+function canAssessPath(row: RowData) {
+  if (!row.id || ['completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) return false;
+  const currentStage = getCurrentStageForRow(row);
+  if (!currentStage) return false;
+  if (currentStage.latestPaperId) return true;
+  return ['in_progress', 'failed', 'pending_review'].includes(currentStage.status || '');
+}
+
+function canEditPath(row: RowData) {
+  if (!row.id || ['completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) return false;
+  return !hasAnyPaper(row);
 }
 
 function handleRegisterViolation(row: RowData) {
@@ -410,8 +433,24 @@ function getTimingTagType(status?: string): 'default' | 'success' | 'warning' | 
   return 'default';
 }
 
-function getStageVisual(stage: AssessmentInternPathStageVo) {
+function isDismissedCurrentStage(row: RowData, stage: AssessmentInternPathStageVo) {
+  if (row.status !== 'dismissed') return false;
+  const currentStageId = row.currentStageId || '';
+  if (!currentStageId) return false;
+  return stage.id === currentStageId || stage.stageId === currentStageId;
+}
+
+function getStageVisual(stage: AssessmentInternPathStageVo, row?: RowData) {
   const vars = themeVars.value;
+
+  if (row && isDismissedCurrentStage(row, stage)) {
+    return {
+      dotColor: vars.errorColor,
+      ringColor: 'rgb(245 34 45 / 18%)',
+      borderColor: 'rgb(245 34 45 / 34%)',
+      lineColor: 'rgb(245 34 45 / 44%)'
+    };
+  }
 
   if (stage.timingStatus === 'overdue' || stage.timingStatus === 'assessed_overdue') {
     return {
@@ -432,11 +471,19 @@ function getStageVisual(stage: AssessmentInternPathStageVo) {
   }
 
   if (stage.status === 'in_progress' || stage.status === 'pending_review') {
+    if (stage.violationFlag) {
+      return {
+        dotColor: vars.warningColor,
+        ringColor: 'rgb(250 173 20 / 18%)',
+        borderColor: 'rgb(250 173 20 / 34%)',
+        lineColor: 'rgb(250 173 20 / 44%)'
+      };
+    }
     return {
-      dotColor: vars.warningColor,
-      ringColor: 'rgb(250 173 20 / 18%)',
-      borderColor: 'rgb(250 173 20 / 34%)',
-      lineColor: 'rgb(250 173 20 / 44%)'
+      dotColor: vars.infoColor,
+      ringColor: 'rgb(32 128 240 / 18%)',
+      borderColor: 'rgb(32 128 240 / 34%)',
+      lineColor: 'rgb(32 128 240 / 44%)'
     };
   }
 
@@ -475,8 +522,8 @@ function getStageVisual(stage: AssessmentInternPathStageVo) {
   };
 }
 
-function getStageDotStyle(stage: AssessmentInternPathStageVo) {
-  const visual = getStageVisual(stage);
+function getStageDotStyle(stage: AssessmentInternPathStageVo, row?: RowData) {
+  const visual = getStageVisual(stage, row);
 
   return {
     width: '18px',
@@ -492,8 +539,8 @@ function getStageDotStyle(stage: AssessmentInternPathStageVo) {
   };
 }
 
-function getStageLineStyle(stage: AssessmentInternPathStageVo) {
-  const visual = getStageVisual(stage);
+function getStageLineStyle(stage: AssessmentInternPathStageVo, row?: RowData) {
+  const visual = getStageVisual(stage, row);
 
   return {
     width: '42px',
@@ -587,7 +634,7 @@ function renderTooltipContent(stage: AssessmentInternPathStageVo) {
   );
 }
 
-function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
+function renderStageProgress(stages: AssessmentInternPathStageVo[], row: RowData) {
   if (!stages.length) {
     return <span class="stage-empty">{TEXT.emptyProgress}</span>;
   }
@@ -607,11 +654,11 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[]) {
           <div key={stage.id || stage.stageId || `${index}`} style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
             <NTooltip placement="top" trigger="hover">
               {{
-                trigger: () => <span style={getStageDotStyle(stage)}></span>,
+                trigger: () => <span style={getStageDotStyle(stage, row)}></span>,
                 default: () => renderTooltipContent(stage)
               }}
             </NTooltip>
-            {index < stages.length - 1 && <span style={getStageLineStyle(stage)}></span>}
+            {index < stages.length - 1 && <span style={getStageLineStyle(stage, row)}></span>}
           </div>
         ))}
       </div>

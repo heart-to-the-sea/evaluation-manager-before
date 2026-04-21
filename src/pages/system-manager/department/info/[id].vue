@@ -31,6 +31,7 @@ const detailItems = computed(() => [
   { label: '部门名称', text: detail.value?.name || '-' },
   { label: '上级部门', text: parentName.value },
   { label: '负责人', text: detail.value?.leaderName || '-' },
+  { label: '默认角色', text: detail.value?.defaultRoleName || '-' },
   { label: '排序', text: detail.value?.sort ?? 0 },
   { label: '部门状态', dictCode: 'department_status', dictValue: detail.value?.status },
   { label: '创建时间', text: detail.value?.createdAt || '-' },

@@ -45,6 +45,12 @@ const columns = computed<DataTableColumns<DepartmentVo>>(() => ([
     render: row => row.leaderName || '-'
   },
   {
+    title: '默认角色',
+    key: 'defaultRoleName',
+    minWidth: 150,
+    render: row => row.defaultRoleName || '-'
+  },
+  {
     title: '状态',
     key: 'status',
     width: 100,

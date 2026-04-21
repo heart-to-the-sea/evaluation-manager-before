@@ -45,6 +45,7 @@ const showPaperDialog = ref(false);
 const showStageEndDialog = ref(false);
 const showViolationDialog = ref(false);
 const showExitDialog = ref(false);
+const showRetainDialog = ref(false);
 const activePaperId = ref<string | null>(null);
 const activePaperReadonly = ref(true);
 const assessStage = ref<AssessmentInternPathStageVo | null>(null);
@@ -75,6 +76,10 @@ const violationForm = reactive({
 });
 
 const exitForm = reactive({
+  reason: ''
+});
+
+const retainForm = reactive({
   reason: ''
 });
 
@@ -388,15 +393,24 @@ const currentStage = computed(() => {
 const currentStageLatestRecord = computed(() => getStageLatestRecord(currentStage.value));
 const isPathTerminated = computed(() => ['dismissed', 'voluntary_resigned'].includes(detail.value?.status || ''));
 const isPathCompleted = computed(() => detail.value?.status === 'completed');
-const canManageTraining = computed(() => !isPathCompleted.value && !isPathTerminated.value);
 const totalViolationCount = computed(() =>
   Object.values(violationMap.value).reduce((total, records) => total + records.length, 0)
+);
+const allViolationRecords = computed(() =>
+  Object.values(violationMap.value)
+    .flat()
+    .sort((left, right) => new Date(right.violationAt || right.createdAt || 0).getTime() - new Date(left.violationAt || left.createdAt || 0).getTime())
 );
 const currentStageViolations = computed(() => {
   const key = currentStage.value?.id || '';
   return key ? violationMap.value[key] || [] : [];
 });
+const latestViolationRecord = computed(() => allViolationRecords.value[0] || null);
 const latestExitRecord = computed(() => exitRecords.value[0] || null);
+const latestDismissPendingRecord = computed(() => latestExitRecord.value?.exitType === 'dismiss_pending' ? latestExitRecord.value : null);
+const isDismissPending = computed(() => detail.value?.status === 'dismiss_pending' || latestExitRecord.value?.exitType === 'dismiss_pending');
+const canManageTraining = computed(() => !isPathCompleted.value && !isPathTerminated.value && !isDismissPending.value);
+const canConfirmDismissed = computed(() => isDismissPending.value && !isPathTerminated.value);
 type StageActionMode = 'start' | 'create' | 'review' | 'view' | 'none';
 const currentAssessActionMode = computed<StageActionMode>(() => resolveStageActionMode(currentStage.value, currentStageLatestRecord.value));
 const canAssessAction = computed(() => currentAssessActionMode.value !== 'none');
@@ -597,14 +611,64 @@ function resolveExitStageName(record?: AssessmentExitRecordVo | null) {
   return matchedStage?.stageName || detail.value?.currentStageName || '-';
 }
 
-function getExitRecordTagType(exitType?: string): 'error' | 'default' {
-  return exitType === 'dismissed' ? 'error' : 'default';
+function getExitRecordTagType(exitType?: string): 'error' | 'warning' | 'default' {
+  if (exitType === 'dismissed') return 'error';
+  if (exitType === 'dismiss_pending' || exitType === 'dismiss_retain') return 'warning';
+  return 'default';
+}
+
+function getExitBannerClass(exitType?: string) {
+  if (exitType === 'dismissed') return 'detail-banner--error';
+  if (exitType === 'dismiss_pending' || exitType === 'dismiss_retain') return 'detail-banner--warning';
+  return 'detail-banner--default';
+}
+
+function getExitBannerText(exitType?: string) {
+  if (exitType === 'dismissed') return '该实习生已确认劝退离场';
+  if (exitType === 'dismiss_pending') return '该实习生已标记劝退，待确认离场';
+  if (exitType === 'dismiss_cancel') return '该实习生已取消本次劝退处理';
+  if (exitType === 'dismiss_retain') return '该实习生已暂时保留，可继续观察';
+  return '该实习生已登记主动离职';
+}
+
+function getViolationBannerClass() {
+  if (totalViolationCount.value > 2) return 'detail-banner--error';
+  if (totalViolationCount.value > 0) return 'detail-banner--warning';
+  return 'detail-banner--default';
+}
+
+function getViolationBannerText() {
+  if (totalViolationCount.value > 2) return '累计违规已超过 2 次，建议立即进行劝退处理';
+  if (totalViolationCount.value > 0) return '该实习生存在违规记录，请持续关注';
+  return '暂无违规记录，当前培训情况正常';
+}
+
+function resolveViolationStageName(record?: AssessmentViolationRecordVo | null) {
+  if (!record) return currentStage.value?.stageName || detail.value?.currentStageName || '-';
+  if (record.stageName) return record.stageName;
+  const matchedStage = (detail.value?.stages || []).find(item => item.id === record.pathStageId || item.stageId === record.stageId);
+  return matchedStage?.stageName || currentStage.value?.stageName || detail.value?.currentStageName || '-';
+}
+
+function isDismissedCurrentStage(stage: AssessmentInternPathStageVo) {
+  if (latestExitRecord.value?.exitType !== 'dismissed') return false;
+  const dismissedStageId = latestExitRecord.value?.pathStageId || detail.value?.currentStageId || '';
+  if (!dismissedStageId) return false;
+  return stage.id === dismissedStageId || stage.stageId === dismissedStageId;
+}
+
+function hasStageViolation(stage: AssessmentInternPathStageVo) {
+  if (stage.violationFlag) return true;
+  return getStageViolations(stage).length > 0;
 }
 
 function getStageDotClass(stage: AssessmentInternPathStageVo) {
+  if (isDismissedCurrentStage(stage)) return 'is-error';
   if (stage.timingStatus === 'overdue' || stage.timingStatus === 'assessed_overdue') return 'is-error';
   if (stage.status === 'passed') return 'is-success';
-  if (stage.status === 'in_progress' || stage.status === 'pending_review') return 'is-warning';
+  if (stage.status === 'in_progress' || stage.status === 'pending_review') {
+    return hasStageViolation(stage) ? 'is-warning' : 'is-info';
+  }
   if (stage.status === 'failed') return 'is-error';
   if (stage.status === 'skipped') return 'is-info';
   if (stage.status === 'ended') return 'is-default';
@@ -625,7 +689,7 @@ function getStageResultTagType(stage: AssessmentInternPathStageVo): 'default' | 
   if (stage.latestPaperStatus === 'pending_review') return 'warning';
   if (stage.latestPaperPassFlag === true) return 'success';
   if (stage.latestPaperPassFlag === false) return 'error';
-  if (stage.status === 'in_progress') return 'warning';
+  if (stage.status === 'in_progress') return hasStageViolation(stage) ? 'warning' : 'info';
   if (stage.status === 'skipped') return 'info';
   if (stage.status === 'ended') return 'default';
   return 'default';
@@ -747,7 +811,7 @@ function resolveStageDurationSummary(stage: AssessmentInternPathStageVo) {
 function getStageDurationTagType(stage: AssessmentInternPathStageVo): 'default' | 'success' | 'warning' | 'error' | 'info' {
   if (stage.timingStatus === 'overdue' || stage.timingStatus === 'assessed_overdue') return 'error';
   if (stage.studyDurationDays != null) return 'info';
-  if (stage.status === 'in_progress') return 'warning';
+  if (stage.status === 'in_progress') return hasStageViolation(stage) ? 'warning' : 'info';
   if (stage.status === 'passed') return 'success';
   return 'default';
 }
@@ -974,8 +1038,25 @@ function openViolationDialog(stage?: AssessmentInternPathStageVo | null) {
   showViolationDialog.value = true;
 }
 
+function formatDateTimeValue(value?: number | null) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
 async function handleSaveViolation() {
-  if (!editingViolationStage.value?.id || !violationForm.description.trim()) return;
+  if (!editingViolationStage.value?.id) return;
+  if (!violationForm.description.trim()) {
+    window.$message?.warning('请输入违规原因');
+    return;
+  }
   actionLoadingStageId.value = editingViolationStage.value.id;
   try {
     const { error, msg } = await fetchAssessmentPathViolationSave({
@@ -1005,27 +1086,78 @@ function openExitDialog() {
 }
 
 async function handleSaveExit() {
+  await submitExit('dismiss_pending');
+}
+
+async function submitExit(exitType: 'dismiss_pending' | 'dismissed' | 'dismiss_cancel' | 'dismiss_retain') {
   if (!detail.value?.userId) return;
-  if (!exitForm.reason.trim()) {
+  const reason = exitType === 'dismiss_retain'
+    ? retainForm.reason.trim()
+    : exitForm.reason.trim() || latestDismissPendingRecord.value?.reason || '';
+  if (exitType === 'dismiss_pending' && !reason) {
     window.$message?.warning('请输入劝退理由');
     return;
   }
-  actionLoadingStageId.value = currentStage.value?.id || detail.value.id || 'exit';
+  if (exitType === 'dismiss_retain' && !reason) {
+    window.$message?.warning('请输入暂时保留原因');
+    return;
+  }
+  actionLoadingStageId.value = exitType === 'dismissed'
+    ? 'confirm-exit'
+    : exitType === 'dismiss_cancel'
+      ? 'cancel-exit'
+      : exitType === 'dismiss_retain'
+        ? 'retain-exit'
+        : currentStage.value?.id || detail.value.id || 'exit';
   try {
     const { error, msg } = await fetchAssessmentPathExitSave({
       pathId: detail.value.id,
       pathStageId: currentStage.value?.id,
       userId: detail.value.userId,
-      exitType: 'dismissed',
-      reason: exitForm.reason.trim() || undefined
+      exitType,
+      reason: reason || undefined
     });
     if (error) return;
-    window.$message?.success(msg || '离场处理已保存');
+    const fallbackMessageMap: Record<string, string> = {
+      dismiss_pending: '已标记劝退',
+      dismissed: '已确认劝退离场',
+      dismiss_cancel: '已取消劝退',
+      dismiss_retain: '已暂时保留'
+    };
+    window.$message?.success(msg || fallbackMessageMap[exitType]);
     showExitDialog.value = false;
+    showRetainDialog.value = false;
     await loadDetail();
   } finally {
     actionLoadingStageId.value = '';
   }
+}
+
+function handleConfirmDismissed() {
+  if (!detail.value?.userId) return;
+  window.$dialog?.warning({
+    title: '确认劝退离场',
+    content: '确认后该实习生将记录为已离职，培训状态将变更为已劝退。是否继续？',
+    positiveText: '确认离场',
+    negativeText: '取消',
+    onPositiveClick: () => submitExit('dismissed')
+  });
+}
+
+function handleCancelDismissed() {
+  if (!detail.value?.userId) return;
+  window.$dialog?.warning({
+    title: '取消劝退',
+    content: '取消后将恢复当前培训流程状态，是否继续？',
+    positiveText: '确认取消',
+    negativeText: '返回',
+    onPositiveClick: () => submitExit('dismiss_cancel')
+  });
+}
+
+function openRetainDialog() {
+  retainForm.reason = '';
+  showRetainDialog.value = true;
 }
 </script>
 
@@ -1060,7 +1192,34 @@ async function handleSaveExit() {
         结束培训
       </NButton>
       <NButton v-if="canManageTraining" secondary type="error" @click="openExitDialog()">
-        劝退处理
+        标记劝退
+      </NButton>
+      <NButton
+        v-if="canConfirmDismissed"
+        secondary
+        type="default"
+        :loading="actionLoadingStageId === 'cancel-exit'"
+        @click="handleCancelDismissed"
+      >
+        取消劝退
+      </NButton>
+      <NButton
+        v-if="canConfirmDismissed"
+        secondary
+        type="warning"
+        :loading="actionLoadingStageId === 'retain-exit'"
+        @click="openRetainDialog"
+      >
+        暂时保留
+      </NButton>
+      <NButton
+        v-if="canConfirmDismissed"
+        secondary
+        type="error"
+        :loading="actionLoadingStageId === 'confirm-exit'"
+        @click="handleConfirmDismissed"
+      >
+        确认劝退离场
       </NButton>
       <NButton @click="navigateTo('/intern-assessment/intern')">
         <template #icon>
@@ -1075,10 +1234,10 @@ async function handleSaveExit() {
           <NEmpty v-if="!detail" description="暂无培训信息" />
 
           <template v-else>
-            <div v-if="latestExitRecord" class="detail-banner" :class="latestExitRecord.exitType === 'dismissed' ? 'detail-banner--error' : 'detail-banner--default'">
+            <div v-if="latestExitRecord" class="detail-banner" :class="getExitBannerClass(latestExitRecord.exitType)">
               <div class="detail-banner__title">
                 <DictTag dict-code="assessment_exit_type" :value="latestExitRecord.exitType" />
-                <span>{{ latestExitRecord.exitType === 'dismissed' ? '该实习生已完成劝退离场处理' : '该实习生已登记主动离职' }}</span>
+                <span>{{ getExitBannerText(latestExitRecord.exitType) }}</span>
               </div>
               <div class="detail-banner__meta">
                 <span>处理时间：{{ latestExitRecord.exitAt || '-' }}</span>
@@ -1109,6 +1268,41 @@ async function handleSaveExit() {
                       <div class="detail-section">
                         <div class="detail-section__title">培训信息</div>
                         <InfoGridCard :items="trainingOverviewItems" />
+                      </div>
+                    </div>
+
+                    <div class="detail-section">
+                      <div class="detail-section__title">违规情况</div>
+                      <div class="detail-banner violation-overview" :class="getViolationBannerClass()">
+                        <div class="detail-banner__title">
+                          <DictTag
+                            v-if="latestViolationRecord?.violationType"
+                            dict-code="assessment_violation_type"
+                            :value="latestViolationRecord.violationType"
+                          />
+                          <NTag v-else size="small" :bordered="false" type="success">正常</NTag>
+                          <span>{{ getViolationBannerText() }}</span>
+                        </div>
+                        <div class="detail-banner__meta">
+                          <span>累计违规：{{ totalViolationCount }} 次</span>
+                          <span>最近阶段：{{ resolveViolationStageName(latestViolationRecord) }}</span>
+                          <span>最近时间：{{ latestViolationRecord?.violationAt || '-' }}</span>
+                        </div>
+                        <div v-if="latestViolationRecord?.description" class="detail-banner__desc">
+                          最近说明：{{ latestViolationRecord.description }}
+                        </div>
+                        <div v-if="allViolationRecords.length > 1" class="violation-overview__list">
+                          <div
+                            v-for="record in allViolationRecords.slice(1, 4)"
+                            :key="record.id || `${record.pathStageId}-${record.violationAt}`"
+                            class="violation-overview__item"
+                          >
+                            <DictTag dict-code="assessment_violation_type" :value="record.violationType" />
+                            <span class="violation-overview__stage">{{ resolveViolationStageName(record) }}</span>
+                            <span class="violation-overview__time">{{ record.violationAt || '-' }}</span>
+                            <span class="violation-overview__desc">{{ record.description || '-' }}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1541,7 +1735,7 @@ async function handleSaveExit() {
       <NModal
         :show="showExitDialog"
         preset="card"
-        title="劝退处理"
+        title="标记劝退"
         :style="{ width: '640px', maxWidth: 'calc(100vw - 32px)' }"
         @update:show="value => !value && (showExitDialog = false)"
       >
@@ -1568,7 +1762,43 @@ async function handleSaveExit() {
           <div class="stage-dialog-actions">
             <NButton @click="showExitDialog = false">取消</NButton>
             <NButton type="primary" :loading="actionLoadingStageId === (currentStage?.id || detail?.id || 'exit')" @click="handleSaveExit">
-              确认提交
+              确认标记
+            </NButton>
+          </div>
+        </template>
+      </NModal>
+
+      <NModal
+        :show="showRetainDialog"
+        preset="card"
+        title="暂时保留"
+        :style="{ width: '640px', maxWidth: 'calc(100vw - 32px)' }"
+        @update:show="value => !value && (showRetainDialog = false)"
+      >
+        <div class="stage-dialog-form">
+          <div class="stage-dialog-form__item">
+            <div class="stage-dialog-form__label">当前阶段</div>
+            <NInput :value="currentStage?.stageName || detail?.currentStageName || '-'" disabled />
+          </div>
+          <div class="stage-dialog-form__item">
+            <div class="stage-dialog-form__label">累计违规次数</div>
+            <NInput :value="String(totalViolationCount)" disabled />
+          </div>
+          <div class="stage-dialog-form__item">
+            <div class="stage-dialog-form__label">保留原因</div>
+            <NInput
+              v-model:value="retainForm.reason"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入暂时保留原因"
+            />
+          </div>
+        </div>
+        <template #action>
+          <div class="stage-dialog-actions">
+            <NButton @click="showRetainDialog = false">取消</NButton>
+            <NButton type="primary" :loading="actionLoadingStageId === 'retain-exit'" @click="submitExit('dismiss_retain')">
+              确认保留
             </NButton>
           </div>
         </template>
@@ -2262,6 +2492,43 @@ html.dark .stage-item__body {
   margin-top: 10px;
   color: var(--n-text-color-2);
   word-break: break-word;
+}
+
+.violation-overview {
+  margin-bottom: 0;
+}
+
+.violation-overview__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.violation-overview__item {
+  display: grid;
+  grid-template-columns: auto minmax(88px, 0.8fr) minmax(140px, 1fr) minmax(160px, 2fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgb(var(--container-bg-color) / 72%);
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 72%);
+  color: var(--n-text-color-2);
+  font-size: 13px;
+}
+
+.violation-overview__stage,
+.violation-overview__time,
+.violation-overview__desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.violation-overview__time {
+  color: var(--n-text-color-3);
 }
 
 .record-list__title {

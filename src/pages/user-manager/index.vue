@@ -91,6 +91,12 @@ const columns = computed<DataTableColumns<RowData>>(() =>
     render: row => <DictTag dictCode="user_type" value={row.userType} fallbackLabel={row.userTypeLabel || '-'} />
   },
   {
+    title: '角色',
+    key: 'roleNames',
+    minWidth: 180,
+    render: row => row.roleNames?.length ? row.roleNames.join('、') : '-'
+  },
+  {
     title: '性别',
     key: 'gender',
     width: 90,

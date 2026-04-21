@@ -16,6 +16,14 @@ export const MENU_ADD = '/menu/add';
 export const MENU_UPDATE = '/menu/update';
 export const MENU_DELETE = '/menu/delete';
 
+export const ROLE_LIST = '/role/list';
+export const ROLE_GET_BY_ID = '/role/getById';
+export const ROLE_ADD = '/role/add';
+export const ROLE_UPDATE = '/role/update';
+export const ROLE_DELETE = '/role/delete';
+export const ROLE_ASSIGN_MENUS = '/role/assignMenus';
+export const ROLE_GET_MENU_IDS = '/role/getMenuIds';
+
 export const USER_LIST = '/user/list';
 export const USER_GET_BY_ID = '/user/getById';
 export const USER_OPTIONS = '/user/options';

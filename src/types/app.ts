@@ -135,6 +135,30 @@ export interface MenuBo extends PageQuery {
   keepAlive?: boolean;
 }
 
+export interface RoleVo {
+  id?: string;
+  name?: string;
+  code?: string;
+  description?: string;
+  status?: number;
+  statusLabel?: string;
+  menuCheckStrictly?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  menuIds?: string[];
+  menus?: MenuVo[];
+}
+
+export interface RoleBo extends PageQuery {
+  id?: string;
+  name?: string;
+  code?: string;
+  description?: string;
+  status?: number;
+  menuCheckStrictly?: boolean;
+  menuIds?: string[];
+}
+
 export interface UserVo {
   id?: string;
   employeeNo?: string;
@@ -159,6 +183,8 @@ export interface UserVo {
   workStatusLabel?: string;
   accountStatus?: string;
   accountStatusLabel?: string;
+  roleIds?: string[];
+  roleNames?: string[];
   currentAssessmentStage?: string;
   assessmentStatus?: string;
   assessmentTemplateName?: string;
@@ -188,6 +214,7 @@ export interface UserBo extends PageQuery {
   jobStatus?: string;
   workStatus?: string;
   accountStatus?: string;
+  roleIds?: string[];
   account?: string;
   password?: string;
 }
@@ -206,6 +233,8 @@ export interface DepartmentVo {
   name?: string;
   leaderEmployeeId?: string;
   leaderName?: string;
+  defaultRoleId?: string;
+  defaultRoleName?: string;
   sort?: number;
   status?: string;
   remark?: string;
@@ -221,6 +250,7 @@ export interface DepartmentBo {
   parentId?: string;
   name?: string;
   leaderEmployeeId?: string;
+  defaultRoleId?: string;
   sort?: number;
   status?: string;
   remark?: string;
@@ -439,6 +469,7 @@ export interface AssessmentInternPathStageVo {
   maxStudyDays?: number;
   latestPaperId?: string;
   latestPaperStatus?: string;
+  violationFlag?: boolean;
   latestPaperQuestionTotal?: number;
   latestPaperCorrectTotal?: number;
   latestPaperScore?: number | string;

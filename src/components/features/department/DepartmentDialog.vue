@@ -3,8 +3,8 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { NButton, NForm, NFormItem, NInput, NInputNumber, NModal, NSelect, NSpace, NTreeSelect } from 'naive-ui';
 import type { FormInst, FormRules, SelectOption, TreeSelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
-import { fetchDepartmentAdd, fetchDepartmentUpdate, fetchUserOptions } from '@/service/api';
-import type { DepartmentBo, DepartmentVo, UserOptionVo } from '@/types/app';
+import { fetchDepartmentAdd, fetchDepartmentUpdate, fetchRoleList, fetchUserOptions } from '@/service/api';
+import type { DepartmentBo, DepartmentVo, RoleVo, UserOptionVo } from '@/types/app';
 
 interface Props {
   show: boolean;
@@ -17,6 +17,7 @@ interface FormModel {
   parentId: string;
   name: string;
   leaderEmployeeId: string | null;
+  defaultRoleId: string | null;
   sort: number;
   status: string | null;
   remark: string;
@@ -32,6 +33,8 @@ const formRef = ref<FormInst | null>(null);
 const submitting = ref(false);
 const leaderLoading = ref(false);
 const leaderOptions = ref<SelectOption[]>([]);
+const roleLoading = ref(false);
+const roleOptions = ref<SelectOption[]>([]);
 
 const isEdit = computed(() => Boolean(props.data?.id));
 const formData = ref<FormModel>(createDefaultForm());
@@ -67,6 +70,7 @@ watch(
     if (visible) {
       formData.value = createFormData(props.data);
       loadLeaderOptions();
+      loadRoleOptions();
       nextTick(() => {
         formRef.value?.restoreValidation();
       });
@@ -80,6 +84,7 @@ function createDefaultForm(): FormModel {
     parentId: '0',
     name: '',
     leaderEmployeeId: null,
+    defaultRoleId: null,
     sort: 0,
     status: '1',
     remark: ''
@@ -96,6 +101,7 @@ function createFormData(data?: DepartmentVo | null): FormModel {
     parentId: data.parentId || '0',
     name: data.name || '',
     leaderEmployeeId: data.leaderEmployeeId || null,
+    defaultRoleId: data.defaultRoleId || null,
     sort: data.sort ?? 0,
     status: data.status || '1',
     remark: data.remark || ''
@@ -161,6 +167,29 @@ async function loadLeaderOptions() {
   }
 }
 
+async function loadRoleOptions() {
+  roleLoading.value = true;
+
+  try {
+    const { data, error } = await fetchRoleList({
+      pageNum: 1,
+      pageSize: 500,
+      status: 1
+    });
+
+    if (error) {
+      return;
+    }
+
+    roleOptions.value = (data?.records || []).map((item: RoleVo) => ({
+      label: item.name || item.code || '未命名角色',
+      value: item.id || ''
+    }));
+  } finally {
+    roleLoading.value = false;
+  }
+}
+
 function handleClose() {
   emit('close', false);
 }
@@ -177,6 +206,7 @@ async function handleSubmit() {
     parentId: formData.value.parentId || '0',
     name: formData.value.name.trim(),
     leaderEmployeeId: formData.value.leaderEmployeeId || undefined,
+    defaultRoleId: formData.value.defaultRoleId || undefined,
     sort: Number(formData.value.sort || 0),
     status: formData.value.status || undefined,
     remark: formData.value.remark.trim() || undefined
@@ -237,6 +267,17 @@ async function handleSubmit() {
           />
         </NFormItem>
 
+        <NFormItem label="默认角色" path="defaultRoleId">
+          <NSelect
+            v-model:value="formData.defaultRoleId"
+            :options="roleOptions"
+            :loading="roleLoading"
+            clearable
+            filterable
+            placeholder="请选择默认角色"
+          />
+        </NFormItem>
+
         <NFormItem label="排序" path="sort">
           <NInputNumber v-model:value="formData.sort" class="w-full" :min="0" />
         </NFormItem>
@@ -244,8 +285,6 @@ async function handleSubmit() {
         <NFormItem label="部门状态" path="status">
           <DictSelect v-model:model-value="formData.status" dict-code="department_status" placeholder="请选择部门状态" />
         </NFormItem>
-
-        <div></div>
 
         <NFormItem class="col-span-2" label="备注" path="remark">
           <NInput v-model:value="formData.remark" type="textarea" :rows="4" placeholder="请输入备注" />

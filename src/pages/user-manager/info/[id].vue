@@ -23,6 +23,7 @@ const detailItems = computed(() => [
   { label: '登录账号', text: detail.value?.account || '-' },
   { label: '所属部门', text: detail.value?.departmentName || '-' },
   { label: '用户类型', dictCode: 'user_type', dictValue: detail.value?.userType, fallbackLabel: detail.value?.userTypeLabel || '-' },
+  { label: '角色分配', text: detail.value?.roleNames?.length ? detail.value.roleNames.join('、') : '-' },
   { label: '岗位名称', dictCode: 'employee_position', dictValue: detail.value?.positionName, fallbackLabel: detail.value?.positionNameLabel || '-' },
   { label: '部门负责人', text: detail.value?.leaderFlag ? '是' : '否' },
   { label: '性别', dictCode: 'employee_gender', dictValue: detail.value?.gender },

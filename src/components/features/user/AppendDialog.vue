@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
-import { NButton, NDatePicker, NForm, NFormItem, NGrid, NGi, NInput, NModal, NSpin, NSwitch, NTreeSelect } from 'naive-ui';
-import type { FormInst, FormRules, TreeSelectOption } from 'naive-ui';
+import { NButton, NDatePicker, NForm, NFormItem, NGrid, NGi, NInput, NModal, NSelect, NSpin, NSwitch, NTreeSelect } from 'naive-ui';
+import type { FormInst, FormRules, SelectOption, TreeSelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
-import { fetchUserAdd, fetchUserUpdate } from '@/service/api';
+import { fetchRoleList, fetchUserAdd, fetchUserUpdate } from '@/service/api';
+import { useAuthStore } from '@/stores/auth';
+import { useMenuStore } from '@/stores/menu';
 import type { DepartmentVo, UserBo, UserVo } from '@/types/app';
 
 interface Props {
@@ -31,6 +33,7 @@ interface FormModel {
   accountStatus: string | null;
   account: string;
   password: string;
+  roleIds: string[];
 }
 
 const props = defineProps<Props>();
@@ -41,6 +44,8 @@ const emit = defineEmits<{
 
 const formRef = ref<FormInst | null>(null);
 const submitting = ref(false);
+const roleLoading = ref(false);
+const roleOptions = ref<SelectOption[]>([]);
 const formData = ref<FormModel>(createDefaultForm());
 const isEdit = computed(() => Boolean(props.data?.id));
 
@@ -62,8 +67,9 @@ const departmentOptions = computed<TreeSelectOption[]>(() => buildDepartmentOpti
 
 watch(
   () => props.show,
-  visible => {
+  async visible => {
     if (visible) {
+      await loadRoleOptions();
       formData.value = createFormData(props.data);
       nextTick(() => {
         formRef.value?.restoreValidation();
@@ -91,7 +97,8 @@ function createDefaultForm(): FormModel {
     workStatus: '1',
     accountStatus: '1',
     account: '',
-    password: ''
+    password: '',
+    roleIds: []
   };
 }
 
@@ -118,7 +125,8 @@ function createFormData(data?: UserVo | null): FormModel {
     workStatus: data.workStatus || '1',
     accountStatus: data.accountStatus || '1',
     account: data.account || '',
-    password: ''
+    password: '',
+    roleIds: data.roleIds ? [...data.roleIds] : []
   };
 }
 
@@ -155,7 +163,35 @@ function handleClose() {
   emit('close', false);
 }
 
+async function loadRoleOptions() {
+  if (roleOptions.value.length) {
+    return;
+  }
+
+  roleLoading.value = true;
+  try {
+    const { data, error } = await fetchRoleList({
+      pageNum: 1,
+      pageSize: 500,
+      status: 1
+    });
+    if (error) {
+      return;
+    }
+
+    roleOptions.value = (data?.records || []).map(item => ({
+      label: item.name || item.code || '未命名角色',
+      value: item.id || ''
+    }));
+  } finally {
+    roleLoading.value = false;
+  }
+}
+
 async function handleSubmit() {
+  const authStore = useAuthStore();
+  const menuStore = useMenuStore();
+
   try {
     await formRef.value?.validate();
   } catch {
@@ -179,6 +215,7 @@ async function handleSubmit() {
     jobStatus: formData.value.jobStatus || undefined,
     workStatus: formData.value.workStatus || undefined,
     accountStatus: formData.value.accountStatus || undefined,
+    roleIds: formData.value.roleIds,
     account: formData.value.account.trim(),
     password: formData.value.password.trim() || undefined
   };
@@ -192,6 +229,10 @@ async function handleSubmit() {
     }
 
     window.$message?.success(isEdit.value ? '人员更新成功' : '人员新增成功');
+    if (isEdit.value && props.data?.id && props.data.id === authStore.userInfo?.userId) {
+      await authStore.loadUserInfo(true);
+      await menuStore.ensureLoaded(true);
+    }
     emit('close', true);
   } finally {
     submitting.value = false;
@@ -256,6 +297,20 @@ async function handleSubmit() {
           <NGi>
             <NFormItem label="用户类型" path="userType">
               <DictSelect v-model:model-value="formData.userType" dict-code="user_type" placeholder="请选择用户类型" />
+            </NFormItem>
+          </NGi>
+
+          <NGi span="2">
+            <NFormItem label="角色分配" path="roleIds">
+              <NSelect
+                v-model:value="formData.roleIds"
+                multiple
+                clearable
+                filterable
+                :loading="roleLoading"
+                :options="roleOptions"
+                placeholder="请选择角色"
+              />
             </NFormItem>
           </NGi>
 

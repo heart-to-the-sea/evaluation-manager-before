@@ -38,6 +38,12 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.system-manager.department.info'
   },
   {
+    label: '角色管理',
+    routeKey: 'system_manager_role_index',
+    routePath: '/system-manager/role',
+    component: 'view.system-manager.role.index'
+  },
+  {
     label: '人员管理',
     routeKey: 'user_manager_index',
     routePath: '/user-manager/index',
