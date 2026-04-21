@@ -55,6 +55,7 @@ export const ASSESSMENT_QUESTION_GET_BY_ID = '/assessment/question/getById';
 export const ASSESSMENT_QUESTION_ADD = '/assessment/question/add';
 export const ASSESSMENT_QUESTION_UPDATE = '/assessment/question/update';
 export const ASSESSMENT_QUESTION_DELETE = '/assessment/question/delete';
+export const ASSESSMENT_QUESTION_BATCH_DELETE = '/assessment/question/batchDelete';
 export const ASSESSMENT_QUESTION_IMPORT = '/assessment/question/import';
 export const ASSESSMENT_QUESTION_EXPORT = '/assessment/question/export';
 export const ASSESSMENT_QUESTION_TEMPLATE_DOWNLOAD = '/assessment/question/template/download';

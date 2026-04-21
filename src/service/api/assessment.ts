@@ -92,6 +92,10 @@ export function fetchAssessmentQuestionDelete(id: string) {
   return request<void>({ url: URL.ASSESSMENT_QUESTION_DELETE, method: 'delete', params: { id } });
 }
 
+export function fetchAssessmentQuestionBatchDelete(ids: string[]) {
+  return request<void>({ url: URL.ASSESSMENT_QUESTION_BATCH_DELETE, method: 'post', data: { ids } });
+}
+
 export function fetchAssessmentQuestionImport(file: File, taskId?: string) {
   const formData = new FormData();
   formData.append('file', file);

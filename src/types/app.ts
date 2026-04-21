@@ -401,6 +401,7 @@ export interface AssessmentQuestionVo {
   stageId?: string;
   stageName?: string;
   questionType?: string;
+  used?: boolean;
   stem?: string;
   knowledgePoint?: string;
   difficulty?: string;
@@ -417,6 +418,7 @@ export interface AssessmentQuestionVo {
 export interface AssessmentQuestionBo extends PageQuery {
   id?: string;
   ids?: string[];
+  used?: boolean;
   stageId?: string;
   questionType?: string;
   stem?: string;

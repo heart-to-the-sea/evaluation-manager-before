@@ -1,14 +1,14 @@
 <script setup lang="tsx">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { AddCircle, ChevronDownOutline } from '@vicons/ionicons5';
-import { NButton, NDataTable, NDropdown, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NSelect } from 'naive-ui';
+import { NButton, NDataTable, NDropdown, NGrid, NGi, NIcon, NInput, NPopconfirm, NSpace, NSelect, NTag } from 'naive-ui';
 import type { DataTableColumns, DataTableRowKey, DropdownOption, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
 import QuestionDialog from '@/components/features/intern-assessment/QuestionDialog.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import { useTableSorter } from '@/composables/use-table-sorter';
-import { fetchAssessmentQuestionDelete, fetchAssessmentQuestionList, fetchAssessmentQuestionTemplateDownload, fetchAssessmentStageList } from '@/service/api';
+import { fetchAssessmentQuestionBatchDelete, fetchAssessmentQuestionDelete, fetchAssessmentQuestionList, fetchAssessmentQuestionTemplateDownload, fetchAssessmentStageList } from '@/service/api';
 import type { AssessmentQuestionVo } from '@/types/app';
 
 definePageMeta({
@@ -24,7 +24,8 @@ const searchParams = ref({
   questionType: null as string | null,
   difficulty: null as string | null,
   stem: '',
-  status: null as string | null
+  status: null as string | null,
+  used: null as boolean | null
 });
 
 const loading = ref(false);
@@ -98,6 +99,13 @@ const columns = computed<DataTableColumns<RowData>>(() =>
     align: 'center',
     render: row => <DictTag dictCode="assessment_enable_status" value={row.status} />
   },
+  {
+    title: '使用情况',
+    key: 'used',
+    width: 100,
+    align: 'center',
+    render: row => <NTag bordered={false} type={row.used ? 'warning' : 'success'}>{row.used ? '已使用' : '未使用'}</NTag>
+  },
   { title: '更新时间', key: 'updatedAt', width: 180 },
   {
     title: '操作',
@@ -110,16 +118,24 @@ const columns = computed<DataTableColumns<RowData>>(() =>
         <NButton size="small" quaternary type="primary" onClick={() => handleEdit(row)}>
           编辑
         </NButton>
-        <NPopconfirm onPositiveClick={() => handleDelete(row)}>
-          {{
-            trigger: () => (
-              <NButton size="small" quaternary type="error">
-                删除
-              </NButton>
-            ),
-            default: () => '确认删除该题目吗？'
-          }}
-        </NPopconfirm>
+        {row.used
+          ? (
+            <NButton size="small" quaternary type="error" disabled>
+              删除
+            </NButton>
+          )
+          : (
+            <NPopconfirm onPositiveClick={() => handleDelete(row)}>
+              {{
+                trigger: () => (
+                  <NButton size="small" quaternary type="error">
+                    删除
+                  </NButton>
+                ),
+                default: () => '确认删除该题目吗？'
+              }}
+            </NPopconfirm>
+          )}
       </div>
     )
   }
@@ -143,8 +159,14 @@ const moreOptions = computed<DropdownOption[]>(() => [
   { label: '导入题库', key: 'import' },
   { label: '导出题库', key: 'export-all' },
   { label: `导出所选${checkedRowKeys.value.length ? `（${checkedRowKeys.value.length}）` : ''}`, key: 'export-selected', disabled: !checkedRowKeys.value.length },
+  { label: `删除所选${checkedRowKeys.value.length ? `（${checkedRowKeys.value.length}）` : ''}`, key: 'delete-selected', disabled: !checkedRowKeys.value.length },
   { label: '下载空白模板', key: 'download-template' }
 ]);
+
+const usedOptions = [
+  { label: '已使用', value: true },
+  { label: '未使用', value: false }
+];
 
 onMounted(async () => {
   await loadStageOptions();
@@ -173,7 +195,8 @@ async function loadData() {
       questionType: searchParams.value.questionType || undefined,
       difficulty: searchParams.value.difficulty || undefined,
       stem: searchParams.value.stem || undefined,
-      status: searchParams.value.status || undefined
+      status: searchParams.value.status || undefined,
+      used: searchParams.value.used ?? undefined
     }));
 
     if (error) {
@@ -202,7 +225,8 @@ function handleReset() {
     questionType: null,
     difficulty: null,
     stem: '',
-    status: null
+    status: null,
+    used: null
   };
   pagination.page = 1;
   loadData();
@@ -231,6 +255,34 @@ async function handleDelete(row: RowData) {
   await loadData();
 }
 
+function handleBatchDelete() {
+  const ids = checkedRowKeys.value.map(item => String(item)).filter(Boolean);
+  if (!ids.length) {
+    window.$message?.warning('请先选择需要删除的题目');
+    return;
+  }
+  const selectedData = tableData.value.filter(item => item.id && ids.includes(item.id));
+  if (selectedData.some(item => item.used)) {
+    window.$message?.warning('所选题目中包含已被使用的题目，无法删除');
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '批量删除',
+    content: `确认删除所选 ${ids.length} 道题目吗？删除后无法恢复。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      const { error } = await fetchAssessmentQuestionBatchDelete(ids);
+      if (error) {
+        return;
+      }
+      window.$message?.success('题目删除成功');
+      await loadData();
+    }
+  });
+}
+
 async function handleDialogClose(submitted = false) {
   showDialog.value = false;
   editData.value = null;
@@ -257,7 +309,8 @@ async function handleExport() {
     questionType: searchParams.value.questionType || undefined,
     difficulty: searchParams.value.difficulty || undefined,
     stem: searchParams.value.stem || undefined,
-    status: searchParams.value.status || undefined
+    status: searchParams.value.status || undefined,
+    used: searchParams.value.used ?? undefined
   });
 }
 
@@ -285,6 +338,10 @@ async function handleMoreSelect(key: string) {
   }
   if (key === 'export-selected') {
     await handleExportSelected();
+    return;
+  }
+  if (key === 'delete-selected') {
+    handleBatchDelete();
     return;
   }
   if (key === 'download-template') {
@@ -318,6 +375,8 @@ async function handleFileInputChange(event: Event) {
               clearable placeholder="难度" style="width: 140px" />
             <DictSelect v-model:model-value="searchParams.status" dict-code="assessment_enable_status" clearable
               placeholder="状态" style="width: 140px" />
+            <NSelect v-model:value="searchParams.used" :options="usedOptions" clearable placeholder="使用情况"
+              style="width: 140px" />
             <NInput v-model:value="searchParams.stem" clearable placeholder="请输入题干关键词" style="width: 220px"
               @keyup.enter="handleSearch" />
             <NButton type="primary" @click="handleSearch">查询</NButton>
