@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onActivated, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
 import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NPopover, NSpace, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
@@ -8,13 +8,15 @@ import DictTag from '@/components/common/DictTag.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import TemplateDialog from '@/components/features/intern-assessment/TemplateDialog.vue';
 import { useTableSorter } from '@/composables/use-table-sorter';
-import { fetchAssessmentStageList, fetchAssessmentTemplateDelete, fetchAssessmentTemplateList } from '@/service/api';
-import type { AssessmentPathTemplateStageVo, AssessmentPathTemplateVo, AssessmentStageRuleVo, AssessmentStageVo } from '@/types/app';
+import { fetchAssessmentFinalTemplateList, fetchAssessmentStageList, fetchAssessmentTemplateDelete, fetchAssessmentTemplateList } from '@/service/api';
+import type { AssessmentFinalTemplateVo, AssessmentPathTemplateStageVo, AssessmentPathTemplateVo, AssessmentStageRuleVo, AssessmentStageVo } from '@/types/app';
+import type { SelectOption } from 'naive-ui';
 
 const TEXT = {
   title: '培训模板管理',
   templateName: '模板名称',
   stageCount: '阶段数',
+  finalTemplate: '最终考核模板',
   stageOverview: '模板阶段',
   status: '状态',
   description: '说明',
@@ -58,8 +60,16 @@ const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentPathTemplateVo | null>(null);
 const stageList = ref<AssessmentStageVo[]>([]);
+const finalTemplateList = ref<AssessmentFinalTemplateVo[]>([]);
 const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
-const sortableColumnKeys = new Set(['name', 'stageCount', 'status', 'description', 'updatedAt']);
+const sortableColumnKeys = new Set(['name', 'finalTemplateName', 'stageCount', 'status', 'description', 'updatedAt']);
+
+const finalTemplateOptions = computed<SelectOption[]>(() =>
+  finalTemplateList.value.map(item => ({
+    label: item.name || '-',
+    value: item.id || ''
+  }))
+);
 
 const pagination = reactive({
   page: 1,
@@ -95,6 +105,12 @@ const columns = computed<DataTableColumns<RowData>>(() =>
     key: 'stages',
     minWidth: 420,
     render: row => renderStageOverview(row.stages || [])
+  },
+  {
+    title: TEXT.finalTemplate,
+    key: 'finalTemplateName',
+    minWidth: 180,
+    render: row => row.finalTemplateName || '-'
   },
   {
     title: TEXT.status,
@@ -145,6 +161,13 @@ const columns = computed<DataTableColumns<RowData>>(() =>
 
 onMounted(async () => {
   await loadStageList();
+  await loadFinalTemplateList();
+  await loadData();
+});
+
+onActivated(async () => {
+  await loadStageList();
+  await loadFinalTemplateList();
   await loadData();
 });
 
@@ -219,6 +242,21 @@ async function loadStageList() {
   stageList.value = data?.records || [];
 }
 
+async function loadFinalTemplateList() {
+  const { data, error } = await fetchAssessmentFinalTemplateList({
+    pageNum: 1,
+    pageSize: 500,
+    status: '1'
+  });
+
+  if (error) {
+    finalTemplateList.value = [];
+    return;
+  }
+
+  finalTemplateList.value = data?.records || [];
+}
+
 async function loadData() {
   loading.value = true;
   try {
@@ -255,12 +293,14 @@ function handleReset() {
   loadData();
 }
 
-function handleAdd() {
+async function handleAdd() {
+  await loadFinalTemplateList();
   editData.value = null;
   showDialog.value = true;
 }
 
-function handleEdit(row: RowData) {
+async function handleEdit(row: RowData) {
+  await loadFinalTemplateList();
   editData.value = { ...row };
   showDialog.value = true;
 }
@@ -280,6 +320,7 @@ async function handleDialogClose(submitted = false) {
   editData.value = null;
   if (submitted) {
     await loadStageList();
+    await loadFinalTemplateList();
     await loadData();
   }
 }
@@ -322,7 +363,13 @@ async function handleDialogClose(submitted = false) {
       @update:sorter="handleSorter"
     />
 
-    <TemplateDialog :show="showDialog" :data="editData" :stage-list="stageList" @close="handleDialogClose" />
+    <TemplateDialog
+      :show="showDialog"
+      :data="editData"
+      :stage-list="stageList"
+      :final-template-options="finalTemplateOptions"
+      @close="handleDialogClose"
+    />
   </SearchTablePageLayout>
 </template>
 

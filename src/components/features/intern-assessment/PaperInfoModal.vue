@@ -18,6 +18,7 @@ import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import PaperItemReplaceDialog from '@/components/features/intern-assessment/PaperItemReplaceDialog.vue';
 import { fetchAssessmentPaperById, fetchAssessmentPaperRegenerate, fetchAssessmentPaperReview } from '@/service/api';
 import type { AssessmentPaperItemVo, AssessmentPaperReviewBo, AssessmentPaperVo } from '@/types/app';
+import { getAssessmentPassResultLabel, resolveAssessmentPassResult } from '@/utils/assessment-dict';
 
 type ReviewFilterKey = 'all' | 'pending' | 'correct' | 'wrong' | 'unanswered';
 type DetailTabKey = 'answer' | 'analysis';
@@ -58,7 +59,12 @@ const paperInfoItems = computed(() => [
   { label: '实习生', text: detail.value?.userName || '-' },
   { label: '培训阶段', text: detail.value?.stageName || '-' },
   { label: '试卷状态', dictCode: 'assessment_paper_status', dictValue: detail.value?.status },
-  { label: '考核结论', text: getPassText(detail.value?.status, detail.value?.passFlag) },
+  {
+    label: '考核结论',
+    dictCode: 'assessment_pass_result',
+    dictValue: resolveAssessmentPassResult(detail.value?.status, detail.value?.passFlag),
+    fallbackLabel: getPassText(detail.value?.status, detail.value?.passFlag)
+  },
   { label: '题目总数', text: detail.value?.questionTotal ?? 0 },
   { label: '答对题数', text: detail.value?.correctTotal ?? 0 },
   { label: '当前得分', text: detail.value?.score ?? '-' },
@@ -252,10 +258,7 @@ function handleClose() {
 }
 
 function getPassText(status?: string, pass?: boolean) {
-  if (status === 'pending_review') return '待批阅';
-  if (pass === true) return '通过';
-  if (pass === false) return '未通过';
-  return '待判定';
+  return getAssessmentPassResultLabel(status, pass);
 }
 
 function hasStudentAnswer(item: AssessmentPaperItemVo) {

@@ -39,6 +39,13 @@ interface RowData extends AssessmentInternPathVo {
   key: string;
 }
 
+interface ProgressVisual {
+  dotColor: string;
+  ringColor: string;
+  borderColor: string;
+  lineColor: string;
+}
+
 const TEXT = {
   user: '实习生',
   template: '培训模板',
@@ -353,6 +360,14 @@ function isCompletedPath(row: RowData) {
   return row.status === 'completed';
 }
 
+function hasStartedPath(row: RowData) {
+  if (!row) return false;
+  if (['in_progress', 'pending_review', 'pending_final_review', 'final_failed', 'completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) {
+    return true;
+  }
+  return Boolean(row.stages?.some(item => item.status && item.status !== 'pending'));
+}
+
 function isDismissedPath(row: RowData) {
   return row.status === 'dismissed';
 }
@@ -362,7 +377,7 @@ function hasAnyPaper(row: RowData) {
 }
 
 function canAssessPath(row: RowData) {
-  if (!row.id || ['completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) return false;
+  if (!row.id || ['pending_final_review', 'final_failed', 'completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) return false;
   const currentStage = getCurrentStageForRow(row);
   if (!currentStage) return false;
   if (currentStage.latestPaperId) return true;
@@ -370,7 +385,7 @@ function canAssessPath(row: RowData) {
 }
 
 function canEditPath(row: RowData) {
-  if (!row.id || ['completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) return false;
+  if (!row.id || ['pending_final_review', 'final_failed', 'completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) return false;
   return !hasAnyPaper(row);
 }
 
@@ -470,7 +485,16 @@ function getStageVisual(stage: AssessmentInternPathStageVo, row?: RowData) {
     };
   }
 
-  if (stage.status === 'in_progress' || stage.status === 'pending_review') {
+  if (stage.status === 'pending_review') {
+    return {
+      dotColor: vars.warningColor,
+      ringColor: 'rgb(250 173 20 / 18%)',
+      borderColor: 'rgb(250 173 20 / 34%)',
+      lineColor: 'rgb(250 173 20 / 44%)'
+    };
+  }
+
+  if (stage.status === 'in_progress') {
     if (stage.violationFlag) {
       return {
         dotColor: vars.warningColor,
@@ -522,6 +546,35 @@ function getStageVisual(stage: AssessmentInternPathStageVo, row?: RowData) {
   };
 }
 
+function getBoundaryVisual(kind: 'start' | 'end', row: RowData): ProgressVisual {
+  const vars = themeVars.value;
+
+  if (kind === 'start') {
+    if (hasStartedPath(row)) {
+      return {
+        dotColor: vars.infoColor,
+        ringColor: 'rgb(32 128 240 / 18%)',
+        borderColor: 'rgb(32 128 240 / 34%)',
+        lineColor: 'rgb(32 128 240 / 44%)'
+      };
+    }
+  } else if (isCompletedPath(row)) {
+    return {
+      dotColor: vars.successColor,
+      ringColor: 'rgb(82 196 26 / 18%)',
+      borderColor: 'rgb(82 196 26 / 34%)',
+      lineColor: 'rgb(82 196 26 / 56%)'
+    };
+  }
+
+  return {
+    dotColor: 'rgb(var(--layout-bg-color))',
+    ringColor: 'rgb(var(--border-color) / 18%)',
+    borderColor: 'rgb(var(--border-color) / 80%)',
+    lineColor: 'rgb(var(--border-color) / 84%)'
+  };
+}
+
 function getStageDotStyle(stage: AssessmentInternPathStageVo, row?: RowData) {
   const visual = getStageVisual(stage, row);
 
@@ -542,6 +595,34 @@ function getStageDotStyle(stage: AssessmentInternPathStageVo, row?: RowData) {
 function getStageLineStyle(stage: AssessmentInternPathStageVo, row?: RowData) {
   const visual = getStageVisual(stage, row);
 
+  return {
+    width: '42px',
+    height: '4px',
+    margin: '0 8px',
+    borderRadius: '999px',
+    background: visual.lineColor,
+    boxShadow: `inset 0 0 0 1px ${visual.borderColor}`,
+    flexShrink: 0,
+    display: 'inline-block'
+  };
+}
+
+function getProgressDotStyle(visual: ProgressVisual) {
+  return {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: visual.dotColor,
+    border: `1px solid ${visual.borderColor}`,
+    boxShadow: `0 0 0 4px ${visual.ringColor}, inset 0 0 0 2px rgb(var(--container-bg-color)), 0 6px 16px rgb(15 23 42 / 10%)`,
+    flexShrink: 0,
+    cursor: 'pointer',
+    display: 'inline-block',
+    transition: 'all 0.2s ease'
+  };
+}
+
+function getProgressLineStyle(visual: ProgressVisual) {
   return {
     width: '42px',
     height: '4px',
@@ -639,6 +720,10 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[], row: RowData
     return <span class="stage-empty">{TEXT.emptyProgress}</span>;
   }
 
+  const startVisual = getBoundaryVisual('start', row);
+  const endVisual = getBoundaryVisual('end', row);
+  const firstStageVisual = getStageVisual(stages[0], row);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', minHeight: '36px' }}>
       <div
@@ -650,6 +735,15 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[], row: RowData
           padding: '6px 2px'
         }}
       >
+        <div style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+          <NTooltip placement="top" trigger="hover">
+            {{
+              trigger: () => <span style={getProgressDotStyle(startVisual)}></span>,
+              default: () => '开始'
+            }}
+          </NTooltip>
+          <span style={getProgressLineStyle(firstStageVisual)}></span>
+        </div>
         {stages.map((stage, index) => (
           <div key={stage.id || stage.stageId || `${index}`} style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
             <NTooltip placement="top" trigger="hover">
@@ -658,9 +752,18 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[], row: RowData
                 default: () => renderTooltipContent(stage)
               }}
             </NTooltip>
-            {index < stages.length - 1 && <span style={getStageLineStyle(stage, row)}></span>}
+            {index < stages.length - 1 && <span style={getStageLineStyle(stages[index + 1], row)}></span>}
           </div>
         ))}
+        <div style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+          <span style={getProgressLineStyle(endVisual)}></span>
+          <NTooltip placement="top" trigger="hover">
+            {{
+              trigger: () => <span style={getProgressDotStyle(endVisual)}></span>,
+              default: () => '结束'
+            }}
+          </NTooltip>
+        </div>
       </div>
     </div>
   );

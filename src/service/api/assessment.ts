@@ -2,6 +2,12 @@ import type {
   AssessmentDailyReportCalendarVo,
   AssessmentDailyReportDateDetailVo,
   AssessmentDailyReportQueryBo,
+  AssessmentFinalReviewLinkCreateBo,
+  AssessmentFinalReviewLinkVo,
+  AssessmentFinalReviewPublicDetailVo,
+  AssessmentFinalReviewPublicSubmitBo,
+  AssessmentFinalTemplateBo,
+  AssessmentFinalTemplateVo,
   AssessmentInternPathBo,
   AssessmentPathDailyCalendarVo,
   AssessmentStageActionBo,
@@ -27,7 +33,8 @@ import type {
   AssessmentReportOverviewVo,
   AssessmentStageBo,
   AssessmentStageVo,
-  PageResult
+  PageResult,
+  UserOptionVo
 } from '@/types/app';
 import { request, requestBlob, requestUpload } from '../request';
 import * as URL from './url';
@@ -70,6 +77,26 @@ export function fetchAssessmentTemplateUpdate(data: AssessmentPathTemplateBo) {
 
 export function fetchAssessmentTemplateDelete(id: string) {
   return request<void>({ url: URL.ASSESSMENT_TEMPLATE_DELETE, method: 'delete', params: { id } });
+}
+
+export function fetchAssessmentFinalTemplateList(params: AssessmentFinalTemplateBo) {
+  return request<PageResult<AssessmentFinalTemplateVo>>({ url: URL.ASSESSMENT_FINAL_TEMPLATE_LIST, method: 'get', params });
+}
+
+export function fetchAssessmentFinalTemplateById(id: string) {
+  return request<AssessmentFinalTemplateVo>({ url: URL.ASSESSMENT_FINAL_TEMPLATE_GET_BY_ID, method: 'get', params: { id } });
+}
+
+export function fetchAssessmentFinalTemplateAdd(data: AssessmentFinalTemplateBo) {
+  return request<void>({ url: URL.ASSESSMENT_FINAL_TEMPLATE_ADD, method: 'post', data });
+}
+
+export function fetchAssessmentFinalTemplateUpdate(data: AssessmentFinalTemplateBo) {
+  return request<void>({ url: URL.ASSESSMENT_FINAL_TEMPLATE_UPDATE, method: 'put', data });
+}
+
+export function fetchAssessmentFinalTemplateDelete(id: string) {
+  return request<void>({ url: URL.ASSESSMENT_FINAL_TEMPLATE_DELETE, method: 'delete', params: { id } });
 }
 
 export function fetchAssessmentQuestionList(params: AssessmentQuestionBo) {
@@ -149,6 +176,30 @@ export function fetchAssessmentPathDelete(id: string) {
 
 export function fetchAssessmentPathEnd(data: AssessmentStageActionBo) {
   return request<void>({ url: URL.ASSESSMENT_PATH_END, method: 'put', data });
+}
+
+export function fetchAssessmentPathFinalReview(data: AssessmentStageActionBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_FINAL_REVIEW, method: 'put', data });
+}
+
+export function fetchAssessmentFinalReviewLinkCreate(data: AssessmentFinalReviewLinkCreateBo) {
+  return request<AssessmentFinalReviewLinkVo>({ url: URL.ASSESSMENT_FINAL_REVIEW_LINK_CREATE, method: 'post', data });
+}
+
+export function fetchAssessmentFinalReviewLinkDetail(token: string) {
+  return request<AssessmentFinalReviewPublicDetailVo>({ url: URL.ASSESSMENT_FINAL_REVIEW_LINK_DETAIL, method: 'get', params: { token } });
+}
+
+export function fetchAssessmentFinalReviewReviewerOptions(token: string) {
+  return request<UserOptionVo[]>({ url: URL.ASSESSMENT_FINAL_REVIEW_LINK_REVIEWER_OPTIONS, method: 'get', params: { token } });
+}
+
+export function fetchAssessmentFinalReviewPaperDetail(token: string, paperId: string) {
+  return request<AssessmentPaperVo>({ url: URL.ASSESSMENT_FINAL_REVIEW_LINK_PAPER_DETAIL, method: 'get', params: { token, paperId } });
+}
+
+export function fetchAssessmentFinalReviewPublicSubmit(data: AssessmentFinalReviewPublicSubmitBo) {
+  return request<void>({ url: URL.ASSESSMENT_FINAL_REVIEW_LINK_SUBMIT, method: 'post', data });
 }
 
 export function fetchAssessmentPathStageStart(data: AssessmentStageActionBo) {

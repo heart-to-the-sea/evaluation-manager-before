@@ -364,6 +364,8 @@ export interface AssessmentPathTemplateVo {
   id?: string;
   name?: string;
   description?: string;
+  finalTemplateId?: string;
+  finalTemplateName?: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -374,8 +376,74 @@ export interface AssessmentPathTemplateBo extends PageQuery {
   id?: string;
   name?: string;
   description?: string;
+  finalTemplateId?: string;
+  finalTemplateName?: string;
   status?: string;
   stages?: AssessmentPathTemplateStageBo[];
+}
+
+export interface AssessmentFinalTemplateItemVo {
+  id?: string;
+  templateId?: string;
+  dimensionId?: string;
+  name?: string;
+  description?: string;
+  score?: number | string;
+  sort?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentFinalTemplateItemBo {
+  id?: string;
+  name?: string;
+  description?: string;
+  score?: number | string;
+  sort?: number;
+}
+
+export interface AssessmentFinalTemplateDimensionVo {
+  id?: string;
+  templateId?: string;
+  name?: string;
+  code?: string;
+  description?: string;
+  score?: number | string;
+  sort?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  items?: AssessmentFinalTemplateItemVo[];
+}
+
+export interface AssessmentFinalTemplateDimensionBo {
+  id?: string;
+  name?: string;
+  code?: string;
+  description?: string;
+  score?: number | string;
+  sort?: number;
+  items?: AssessmentFinalTemplateItemBo[];
+}
+
+export interface AssessmentFinalTemplateVo {
+  id?: string;
+  name?: string;
+  description?: string;
+  totalScore?: number | string;
+  status?: string;
+  statusLabel?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  dimensions?: AssessmentFinalTemplateDimensionVo[];
+}
+
+export interface AssessmentFinalTemplateBo extends PageQuery {
+  id?: string;
+  name?: string;
+  description?: string;
+  totalScore?: number | string;
+  status?: string;
+  dimensions?: AssessmentFinalTemplateDimensionBo[];
 }
 
 export interface AssessmentQuestionOptionVo {
@@ -512,7 +580,80 @@ export interface AssessmentStageActionBo {
   pathId?: string;
   pathStageId?: string;
   rating?: string;
+  passFlag?: boolean;
+  finalComment?: string;
   autoStartNext?: boolean;
+  finalItems?: AssessmentFinalReviewItemBo[];
+}
+
+export interface AssessmentFinalReviewItemBo {
+  dimensionId?: string;
+  itemId?: string;
+  score?: number | string | null;
+  comment?: string;
+}
+
+export interface AssessmentFinalReviewItemVo {
+  id?: string;
+  pathId?: string;
+  userId?: string;
+  templateId?: string;
+  templateName?: string;
+  dimensionId?: string;
+  dimensionName?: string;
+  dimensionCode?: string;
+  itemId?: string;
+  itemName?: string;
+  itemDescription?: string;
+  maxScore?: number | string;
+  score?: number | string;
+  comment?: string;
+  sort?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentFinalReviewDimensionVo {
+  dimensionId?: string;
+  dimensionName?: string;
+  dimensionCode?: string;
+  maxScore?: number | string;
+  score?: number | string;
+  items?: AssessmentFinalReviewItemVo[];
+}
+
+export interface AssessmentFinalReviewLinkCreateBo {
+  pathId?: string;
+}
+
+export interface AssessmentFinalReviewLinkVo {
+  id?: string;
+  pathId?: string;
+  token?: string;
+  linkPath?: string;
+  status?: string;
+  expireAt?: string;
+}
+
+export interface AssessmentFinalReviewPublicDetailVo {
+  token?: string;
+  status?: string;
+  expireAt?: string;
+  expired?: boolean;
+  path?: AssessmentInternPathVo;
+  user?: UserVo;
+  finalTemplate?: AssessmentFinalTemplateVo;
+  paperRecords?: AssessmentPaperVo[];
+  dailyCalendar?: AssessmentPathDailyCalendarVo;
+  violationRecords?: AssessmentViolationRecordVo[];
+  exitRecords?: AssessmentExitRecordVo[];
+}
+
+export interface AssessmentFinalReviewPublicSubmitBo {
+  token?: string;
+  reviewerUserId?: string;
+  comment?: string;
+  finalItems?: AssessmentFinalReviewItemBo[];
 }
 
 export interface AssessmentStageDailyReportVo {
@@ -673,15 +814,24 @@ export interface AssessmentInternPathVo {
   employeeNo?: string;
   templateId?: string;
   templateName?: string;
+  finalTemplateId?: string;
+  finalTemplateName?: string;
   trainingStartDate?: string;
   trainingEndDate?: string;
   currentStageId?: string;
   currentStageName?: string;
   status?: string;
   statusLabel?: string;
+  finalRating?: string;
+  finalRatingLabel?: string;
+  finalPassFlag?: boolean;
+  finalScore?: number | string;
+  finalComment?: string;
+  finalReviewedAt?: string;
   createdAt?: string;
   updatedAt?: string;
   stages?: AssessmentInternPathStageVo[];
+  finalReviewDimensions?: AssessmentFinalReviewDimensionVo[];
 }
 
 export interface AssessmentInternPathBo extends PageQuery {

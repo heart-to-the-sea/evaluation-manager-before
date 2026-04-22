@@ -1,7 +1,7 @@
 <script setup lang="tsx">
-import { computed, h, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { AddCircle } from '@vicons/ionicons5';
-import { NButton, NDataTable, NGrid, NGi, NIcon, NSpace, NSelect, NTag } from 'naive-ui';
+import { NButton, NDataTable, NGrid, NGi, NIcon, NSpace, NSelect } from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
@@ -10,6 +10,7 @@ import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue'
 import { useTableSorter } from '@/composables/use-table-sorter';
 import { fetchAssessmentPaperList, fetchAssessmentPaperRegenerate, fetchAssessmentPathList, fetchUserOptions } from '@/service/api';
 import type { AssessmentPaperVo, UserOptionVo } from '@/types/app';
+import { getAssessmentPassResultLabel, resolveAssessmentPassResult } from '@/utils/assessment-dict';
 
 definePageMeta({
   title: '阶段考核'
@@ -85,7 +86,13 @@ const columns = computed<DataTableColumns<RowData>>(() =>
     key: 'passFlag',
     width: 90,
     align: 'center',
-    render: row => h(NTag, { bordered: false, type: row.passFlag ? 'success' : 'error' }, { default: () => (row.passFlag == null ? '-' : row.passFlag ? '通过' : '未通过') })
+    render: row => (
+      <DictTag
+        dictCode="assessment_pass_result"
+        value={resolveAssessmentPassResult(row.status, row.passFlag)}
+        fallbackLabel={getAssessmentPassResultLabel(row.status, row.passFlag)}
+      />
+    )
   },
   { title: '批阅时间', key: 'reviewedAt', width: 180, render: row => row.reviewedAt || '-' },
   { title: '创建时间', key: 'createdAt', width: 180 },

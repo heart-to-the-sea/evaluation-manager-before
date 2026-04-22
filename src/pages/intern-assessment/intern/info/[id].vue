@@ -1,15 +1,19 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ArrowBackOutline, ChevronDownOutline, ChevronForwardOutline } from '@vicons/ionicons5';
-import { NButton, NDatePicker, NEmpty, NIcon, NInput, NModal, NSpin, NSwitch, NTabPane, NTabs, NTag } from 'naive-ui';
+import { NButton, NDatePicker, NEmpty, NIcon, NInput, NInputNumber, NModal, NSpin, NSwitch, NTabPane, NTabs, NTag } from 'naive-ui';
 import DictTag from '@/components/common/DictTag.vue';
 import DictSelect from '@/components/common/DictSelect.vue';
 import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
 import PaperInfoModal from '@/components/features/intern-assessment/PaperInfoModal.vue';
+import PathDailyCalendar from '@/components/features/intern-assessment/PathDailyCalendar.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 import {
+  fetchAssessmentFinalReviewLinkCreate,
   fetchAssessmentPathEnd,
+  fetchAssessmentFinalTemplateById,
+  fetchAssessmentPathFinalReview,
   fetchAssessmentPaperList,
   fetchAssessmentPathById,
   fetchAssessmentPathDailyCalendar,
@@ -23,6 +27,7 @@ import {
 } from '@/service/api';
 import type {
   AssessmentExitRecordVo,
+  AssessmentFinalTemplateVo,
   AssessmentInternPathStageVo,
   AssessmentInternPathVo,
   AssessmentPathDailyCalendarDayVo,
@@ -32,6 +37,11 @@ import type {
   UserOptionVo,
   UserVo
 } from '@/types/app';
+import {
+  getAssessmentDailyReportStatusLabel,
+  getAssessmentPassResultLabel,
+  resolveAssessmentPassResult
+} from '@/utils/assessment-dict';
 
 definePageMeta({
   title: '培训详情'
@@ -43,6 +53,7 @@ const loading = ref(false);
 const showAssessDialog = ref(false);
 const showPaperDialog = ref(false);
 const showStageEndDialog = ref(false);
+const showFinalReviewDialog = ref(false);
 const showViolationDialog = ref(false);
 const showExitDialog = ref(false);
 const showRetainDialog = ref(false);
@@ -56,6 +67,18 @@ const detail = ref<AssessmentInternPathVo | null>(null);
 const userDetail = ref<UserVo | null>(null);
 const paperRecords = ref<AssessmentPaperVo[]>([]);
 const dailyCalendar = ref<AssessmentPathDailyCalendarVo | null>(null);
+const finalReviewTemplate = ref<AssessmentFinalTemplateVo | null>(null);
+const finalReviewTemplateLoading = ref(false);
+const finalReviewItems = ref<Array<{
+  dimensionId?: string;
+  dimensionName?: string;
+  itemId?: string;
+  itemName?: string;
+  itemDescription?: string;
+  maxScore?: number | string;
+  score: number | null;
+  comment: string;
+}>>([]);
 const violationMap = ref<Record<string, AssessmentViolationRecordVo[]>>({});
 const exitRecords = ref<AssessmentExitRecordVo[]>([]);
 const expandedStageKeys = ref<string[]>([]);
@@ -67,6 +90,45 @@ const activeDailyCell = ref<AssessmentPathDailyCalendarDayVo | null>(null);
 const stageEndForm = reactive({
   rating: 'B',
   autoStartNext: false
+});
+
+const finalReviewForm = reactive({
+  rating: 'B',
+  passFlag: true,
+  finalComment: ''
+});
+
+const finalReviewTotalScore = computed(() =>
+  finalReviewItems.value.reduce((total, item) => total + Number(item.score || 0), 0)
+);
+
+const finalReviewMaxScore = computed(() =>
+  finalReviewItems.value.reduce((total, item) => total + Number(item.maxScore || 0), 0)
+);
+
+const finalReviewGroupedItems = computed(() => {
+  const groups = new Map<string, {
+    key: string;
+    name: string;
+    maxScore: number;
+    score: number;
+    items: typeof finalReviewItems.value;
+  }>();
+  finalReviewItems.value.forEach(item => {
+    const key = item.dimensionId || item.dimensionName || 'default';
+    const group = groups.get(key) || {
+      key,
+      name: item.dimensionName || '未分组',
+      maxScore: 0,
+      score: 0,
+      items: []
+    };
+    group.maxScore += Number(item.maxScore || 0);
+    group.score += Number(item.score || 0);
+    group.items.push(item);
+    groups.set(key, group);
+  });
+  return Array.from(groups.values());
 });
 
 const violationForm = reactive({
@@ -85,7 +147,13 @@ const retainForm = reactive({
 
 const pathId = computed(() => String(route.params.id || ''));
 const dailyCalendarWeekLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const;
-const dailyStagePalette = [
+type DailyStageColor = {
+  background: string;
+  border: string;
+  text: string;
+  subText: string;
+};
+const dailyStagePalette: DailyStageColor[] = [
   {
     background: 'rgb(var(--em-primary-color-rgb) / 0.14)',
     border: 'rgb(var(--em-primary-color-rgb) / 0.28)',
@@ -122,7 +190,7 @@ const dailyStagePalette = [
     text: 'rgb(var(--em-primary-color-rgb) / 0.9)',
     subText: 'rgb(var(--em-primary-color-rgb) / 0.72)'
   }
-] as const;
+];
 
 const currentUserOptions = computed<UserOptionVo[]>(() =>
   [
@@ -376,23 +444,32 @@ const dailyCalendarHeaderTags = computed(() => [
   { label: '超时天数', value: `${dailyCalendarSummary.value.overtimeCount}` }
 ]);
 
+function resolveFocusStage(stages: AssessmentInternPathStageVo[], currentStageId?: string | null) {
+  const stageList = stages || [];
+  if (!stageList.length) return null;
+
+  return (
+    stageList.find(item => item.status === 'pending_review')
+    || stageList.find(item => (item.stageId === currentStageId || item.id === currentStageId) && item.status !== 'pending')
+    || stageList.find(item => item.status === 'in_progress')
+    || stageList.find(item => item.status === 'failed')
+    || stageList.find(item => item.stageId === currentStageId || item.id === currentStageId)
+    || stageList.find(item => item.status === 'pending')
+    || stageList[0]
+  );
+}
+
 const currentStage = computed(() => {
   const stages = stageRecords.value;
   if (!stages.length) return null;
 
-  return (
-    stages.find(item => item.stageId === detail.value?.currentStageId) ||
-    stages.find(item => item.status === 'in_progress') ||
-    stages.find(item => item.status === 'failed') ||
-    stages.find(item => item.status === 'pending') ||
-    stages.find(item => item.status === 'pending_review') ||
-    stages[0]
-  );
+  return resolveFocusStage(stages, detail.value?.currentStageId);
 });
 
 const currentStageLatestRecord = computed(() => getStageLatestRecord(currentStage.value));
 const isPathTerminated = computed(() => ['dismissed', 'voluntary_resigned'].includes(detail.value?.status || ''));
 const isPathCompleted = computed(() => detail.value?.status === 'completed');
+const isPathPendingFinalReview = computed(() => ['pending_final_review', 'final_failed'].includes(detail.value?.status || ''));
 const totalViolationCount = computed(() =>
   Object.values(violationMap.value).reduce((total, records) => total + records.length, 0)
 );
@@ -409,7 +486,9 @@ const latestViolationRecord = computed(() => allViolationRecords.value[0] || nul
 const latestExitRecord = computed(() => exitRecords.value[0] || null);
 const latestDismissPendingRecord = computed(() => latestExitRecord.value?.exitType === 'dismiss_pending' ? latestExitRecord.value : null);
 const isDismissPending = computed(() => detail.value?.status === 'dismiss_pending' || latestExitRecord.value?.exitType === 'dismiss_pending');
-const canManageTraining = computed(() => !isPathCompleted.value && !isPathTerminated.value && !isDismissPending.value);
+const canFinalReview = computed(() => !isPathCompleted.value && !isPathTerminated.value && !isDismissPending.value && isPathPendingFinalReview.value);
+const canCreateFinalReviewLink = computed(() => !isPathCompleted.value && !isPathTerminated.value && !isDismissPending.value);
+const canManageTraining = computed(() => !isPathCompleted.value && !isPathTerminated.value && !isDismissPending.value && !isPathPendingFinalReview.value);
 const canConfirmDismissed = computed(() => isDismissPending.value && !isPathTerminated.value);
 type StageActionMode = 'start' | 'create' | 'review' | 'view' | 'none';
 const currentAssessActionMode = computed<StageActionMode>(() => resolveStageActionMode(currentStage.value, currentStageLatestRecord.value));
@@ -451,10 +530,21 @@ const basicInfoItems = computed(() => [
 
 const trainingOverviewItems = computed(() => [
   { label: '培训模板', text: detail.value?.templateName || '-' },
+  { label: '总体考评模板', text: detail.value?.finalTemplateName || '-' },
   { label: '培训开始时间', text: detail.value?.trainingStartDate || '-' },
   { label: '培训结束时间', text: detail.value?.trainingEndDate || '-' },
   { label: '当前培训阶段', text: detail.value?.currentStageName || '-' },
   { label: '培训状态', dictCode: 'assessment_path_status', dictValue: detail.value?.status, fallbackLabel: detail.value?.statusLabel || '' },
+  { label: '总体评级', dictCode: 'assessment_stage_rating', dictValue: detail.value?.finalRating, fallbackLabel: detail.value?.finalRatingLabel || '-' },
+  { label: '总体得分', text: detail.value?.finalScore == null ? '-' : `${detail.value.finalScore}` },
+  {
+    label: '总体结果',
+    dictCode: 'assessment_pass_result',
+    dictValue: detail.value?.finalPassFlag == null ? 'pending' : detail.value.finalPassFlag ? 'passed' : 'failed',
+    fallbackLabel: detail.value?.finalPassFlag == null ? '-' : detail.value.finalPassFlag ? '通过' : '未通过'
+  },
+  { label: '总体考评时间', text: detail.value?.finalReviewedAt || '-' },
+  { label: '总体考评说明', text: detail.value?.finalComment || '-' },
   { label: '累计违规次数', text: String(totalViolationCount.value) },
   { label: '阶段数量', text: String(detail.value?.stages?.length || 0) },
   { label: '当前学习时间', text: resolveStudyDaysText(currentStage.value) },
@@ -677,7 +767,7 @@ function getStageDotClass(stage: AssessmentInternPathStageVo) {
 
 function getStageResultText(stage: AssessmentInternPathStageVo) {
   if (stage.latestPaperStatus === 'pending_review') return '待批阅';
-  if (stage.latestPaperPassFlag === true) return '已通过';
+  if (stage.latestPaperPassFlag === true) return '通过';
   if (stage.latestPaperPassFlag === false) return '未通过';
   if (stage.status === 'in_progress') return '培训中';
   if (stage.status === 'skipped') return '已跳过';
@@ -696,10 +786,7 @@ function getStageResultTagType(stage: AssessmentInternPathStageVo): 'default' | 
 }
 
 function getRecordResultText(record: AssessmentPaperVo) {
-  if (record.status === 'pending_review') return '待批阅';
-  if (record.passFlag === true) return '通过';
-  if (record.passFlag === false) return '未通过';
-  return '待判定';
+  return getAssessmentPassResultLabel(record.status, record.passFlag);
 }
 
 function resolveStudyDaysText(stage?: AssessmentInternPathStageVo | null) {
@@ -733,8 +820,8 @@ function syncExpandedStageKeys(stages: AssessmentInternPathStageVo[], currentSta
   const validKeys = new Set((stages || []).map(item => getStageKey(item)).filter(Boolean));
   const nextKeys = expandedStageKeys.value.filter(key => validKeys.has(key));
   if (!nextKeys.length) {
-    const currentKey = (stages || []).find(item => item.stageId === currentStageId || item.id === currentStageId);
-    const fallbackKey = currentKey ? getStageKey(currentKey) : getStageKey(stages?.[0]);
+    const focusStage = resolveFocusStage(stages || [], currentStageId);
+    const fallbackKey = getStageKey(focusStage) || getStageKey(stages?.[0]);
     expandedStageKeys.value = fallbackKey ? [fallbackKey] : [];
     return;
   }
@@ -769,10 +856,8 @@ function getDailyStatusTagType(status?: AssessmentPathDailyCalendarDayVo['report
 function getDailyStatusText(day?: AssessmentPathDailyCalendarDayVo | null) {
   if (!day) return '-';
   if (day.stageStartedFlag === false) return '未开始';
-  if (day.reportStatus === 'submitted') return '已提交';
-  if (day.reportStatus === 'pending') return '未提交';
-  if (day.reportStatus === 'holiday') return '节假日';
-  if (day.reportStatus === 'upcoming') return '待提交';
+  const statusLabel = getAssessmentDailyReportStatusLabel(day.reportStatus, day.holidayFlag);
+  if (statusLabel !== '空白') return statusLabel;
   return day.expectedReportFlag ? '待提交' : '无需提交';
 }
 
@@ -968,22 +1053,135 @@ function handleAssessCurrentStage() {
 function handleEndTraining() {
   if (!detail.value?.id) return;
   window.$dialog?.warning({
-    title: '结束培训',
-    content: '确认结束当前培训吗？结束后，当前未完成阶段及后续阶段都将标记为“已结束”，且本培训将不可继续推进。',
-    positiveText: '确认结束',
+    title: '结束阶段培训',
+    content: '确认结束当前阶段培训吗？结束后，当前未完成阶段及后续阶段都将标记为“已结束”，培训会进入“待总体考评”，总体考评通过后才会正式结训。',
+    positiveText: '确认结束阶段',
     negativeText: '取消',
     onPositiveClick: async () => {
       actionLoadingStageId.value = detail.value?.id || 'path-end';
       try {
         const { error } = await fetchAssessmentPathEnd({ pathId: detail.value?.id });
         if (error) return;
-        window.$message?.success('培训已结束');
+        window.$message?.success('阶段培训已结束，请进行总体考评');
         await loadDetail();
       } finally {
         actionLoadingStageId.value = '';
       }
     }
   });
+}
+
+function buildFinalReviewItemsFromSaved() {
+  const savedDimensions = detail.value?.finalReviewDimensions || [];
+  return savedDimensions.flatMap(dimension =>
+    (dimension.items || []).map(item => ({
+      dimensionId: dimension.dimensionId || item.dimensionId,
+      dimensionName: dimension.dimensionName || item.dimensionName,
+      itemId: item.itemId,
+      itemName: item.itemName,
+      itemDescription: item.itemDescription,
+      maxScore: item.maxScore,
+      score: item.score == null ? null : Number(item.score),
+      comment: item.comment || ''
+    }))
+  );
+}
+
+function buildFinalReviewItemsFromTemplate(template: AssessmentFinalTemplateVo | null) {
+  return (template?.dimensions || []).flatMap(dimension =>
+    (dimension.items || []).map(item => ({
+      dimensionId: dimension.id,
+      dimensionName: dimension.name,
+      itemId: item.id,
+      itemName: item.name,
+      itemDescription: item.description,
+      maxScore: item.score,
+      score: null,
+      comment: ''
+    }))
+  );
+}
+
+async function openFinalReviewDialog() {
+  if (!detail.value?.finalTemplateId) {
+    window.$message?.warning('当前培训模板未配置总体考评模板，请先在培训模板中选择最终考核模板');
+    return;
+  }
+  finalReviewForm.rating = detail.value?.finalRating || 'B';
+  finalReviewForm.passFlag = detail.value?.finalPassFlag ?? true;
+  finalReviewForm.finalComment = detail.value?.finalComment || '';
+  finalReviewTemplate.value = null;
+  finalReviewItems.value = buildFinalReviewItemsFromSaved();
+  showFinalReviewDialog.value = true;
+
+  finalReviewTemplateLoading.value = true;
+  try {
+    const { data, error } = await fetchAssessmentFinalTemplateById(detail.value.finalTemplateId);
+    if (error) return;
+    finalReviewTemplate.value = data || null;
+    if (!finalReviewItems.value.length) {
+      finalReviewItems.value = buildFinalReviewItemsFromTemplate(data || null);
+    }
+  } finally {
+    finalReviewTemplateLoading.value = false;
+  }
+}
+
+async function handleFinalReviewSubmit() {
+  if (!detail.value?.id) return;
+  if (!finalReviewForm.rating) {
+    window.$message?.warning('请选择总体评级');
+    return;
+  }
+  if (!finalReviewItems.value.length) {
+    window.$message?.warning('当前总体考评模板未配置评分项');
+    return;
+  }
+  const unfinishedItem = finalReviewItems.value.find(item => item.score === null || item.score === undefined);
+  if (unfinishedItem) {
+    window.$message?.warning(`请填写「${unfinishedItem.itemName || '评分项'}」得分`);
+    return;
+  }
+  const invalidItem = finalReviewItems.value.find(item => Number(item.score) < 0 || Number(item.score) > Number(item.maxScore || 0));
+  if (invalidItem) {
+    window.$message?.warning(`「${invalidItem.itemName || '评分项'}」得分需在 0 到 ${invalidItem.maxScore || 0} 之间`);
+    return;
+  }
+  actionLoadingStageId.value = 'final-review';
+  try {
+    const { error, msg } = await fetchAssessmentPathFinalReview({
+      pathId: detail.value.id,
+      rating: finalReviewForm.rating,
+      passFlag: finalReviewForm.passFlag,
+      finalComment: finalReviewForm.finalComment.trim() || undefined,
+      finalItems: finalReviewItems.value.map(item => ({
+        dimensionId: item.dimensionId,
+        itemId: item.itemId,
+        score: item.score,
+        comment: item.comment.trim() || undefined
+      }))
+    });
+    if (error) return;
+    window.$message?.success(msg || '总体考评已提交');
+    showFinalReviewDialog.value = false;
+    await loadDetail();
+  } finally {
+    actionLoadingStageId.value = '';
+  }
+}
+
+async function handleCreateFinalReviewLink() {
+  if (!detail.value?.id) return;
+  actionLoadingStageId.value = 'final-review-link';
+  try {
+    const { data, error } = await fetchAssessmentFinalReviewLinkCreate({ pathId: detail.value.id });
+    if (error || !data?.linkPath) return;
+    const url = `${window.location.origin}${data.linkPath}`;
+    await navigator.clipboard?.writeText(url);
+    window.$message?.success('总体考评链接已生成并复制');
+  } finally {
+    actionLoadingStageId.value = '';
+  }
 }
 
 async function handleAssessClose(submitted = false, paperId?: string) {
@@ -1189,7 +1387,24 @@ function openRetainDialog() {
         :loading="actionLoadingStageId === detail?.id"
         @click="handleEndTraining"
       >
-        结束培训
+        结束阶段培训
+      </NButton>
+      <NButton
+        v-if="canCreateFinalReviewLink"
+        secondary
+        type="primary"
+        :loading="actionLoadingStageId === 'final-review-link'"
+        @click="handleCreateFinalReviewLink"
+      >
+        生成考评链接
+      </NButton>
+      <NButton
+        v-if="canFinalReview"
+        type="primary"
+        :loading="actionLoadingStageId === 'final-review'"
+        @click="openFinalReviewDialog"
+      >
+        总体考评
       </NButton>
       <NButton v-if="canManageTraining" secondary type="error" @click="openExitDialog()">
         标记劝退
@@ -1328,9 +1543,12 @@ function openRetainDialog() {
                             <div class="stage-item__meta">
                               <div class="stage-item__meta-tag">
                                 <span class="stage-item__meta-label">执行情况</span>
-                                <NTag size="small" :bordered="false" :type="getStageResultTagType(stage)">
-                                  {{ getStageResultText(stage) }}
-                                </NTag>
+                                <DictTag
+                                  size="small"
+                                  dict-code="assessment_pass_result"
+                                  :value="resolveAssessmentPassResult(stage.latestPaperStatus, stage.latestPaperPassFlag)"
+                                  :fallback-label="getStageResultText(stage)"
+                                />
                               </div>
                               <div class="stage-item__meta-tag">
                                 <span class="stage-item__meta-label">持续情况</span>
@@ -1428,9 +1646,11 @@ function openRetainDialog() {
                                     <div class="record-item__title">
                                       <span>{{ record.stageName || stage.stageName || '-' }}</span>
                                       <DictTag dict-code="assessment_paper_status" :value="record.status" />
-                                      <NTag :bordered="false" :type="getPaperPassType(record)">
-                                        {{ getRecordResultText(record) }}
-                                      </NTag>
+                                      <DictTag
+                                        dict-code="assessment_pass_result"
+                                        :value="resolveAssessmentPassResult(record.status, record.passFlag)"
+                                        :fallback-label="getRecordResultText(record)"
+                                      />
                                     </div>
 
                                     <div class="record-item__meta">
@@ -1483,103 +1703,7 @@ function openRetainDialog() {
               <NTabPane name="daily" tab="日报">
                 <div class="detail-tab-pane">
                   <div class="detail-section">
-                    <div class="daily-calendar-panel">
-                      <div class="daily-calendar-panel__header">
-                        <div class="daily-calendar-panel__title-group">
-                          <div class="daily-calendar-panel__eyebrow">培训阶段日报追踪</div>
-                          <div class="daily-calendar-panel__title">按实际培训区间连续展示</div>
-                        </div>
-                        <div class="daily-calendar-panel__summary">
-                          <div v-for="item in dailyCalendarHeaderTags" :key="item.label" class="daily-calendar-summary-chip">
-                            <span class="daily-calendar-summary-chip__label">{{ item.label }}</span>
-                            <span class="daily-calendar-summary-chip__value">{{ item.value }}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="dailyStageLegend.length" class="daily-calendar-legend">
-                        <div v-for="item in dailyStageLegend" :key="item.key" class="daily-calendar-legend__item">
-                          <span
-                            class="daily-calendar-legend__dot"
-                            :style="{
-                              background: item.color?.background || 'rgb(var(--em-primary-color-rgb) / 0.08)',
-                              borderColor: item.color?.border || 'rgb(var(--em-primary-color-rgb) / 0.18)'
-                            }"
-                          ></span>
-                          <span>{{ item.name }}</span>
-                        </div>
-                      </div>
-
-                      <div class="daily-calendar-weekdays">
-                        <div v-for="item in dailyCalendarWeekLabels" :key="item" class="daily-calendar-weekdays__item">{{ item }}</div>
-                      </div>
-
-                      <div v-if="dailyCalendarRows.length" class="daily-calendar-list">
-                        <div v-for="row in dailyCalendarRows" :key="row.key" class="daily-calendar-row">
-                          <div class="daily-calendar-grid">
-                            <div
-                              v-for="(cell, cellIndex) in row.cells"
-                              :key="cell?.key || `empty-${row.key}-${cellIndex}`"
-                              class="daily-calendar-cell"
-                              :class="{
-                                'daily-calendar-cell--today': cell?.isToday,
-                                'daily-calendar-cell--clickable': Boolean(cell?.clickable),
-                                'daily-calendar-cell--overtime': cell?.raw?.overtimeStageFlag,
-                                'daily-calendar-cell--planned': cell?.raw?.stageStartedFlag === false,
-                                'daily-calendar-cell--muted': cell?.muted
-                              }"
-                              :style="
-                                cell && !cell.muted && cell.raw && getDailyStageKey(cell.raw)
-                                  ? {
-                                      '--daily-stage-background': cell.color?.background,
-                                      '--daily-stage-border': cell.color?.border,
-                                      '--daily-stage-text': cell.color?.text,
-                                      '--daily-stage-sub-text': cell.color?.subText || cell.color?.text,
-                                      background: cell.color?.background,
-                                      borderColor: cell.color?.border
-                                    }
-                                : undefined
-                              "
-                              @click="cell?.clickable && openDailyDetail(cell.raw)"
-                            >
-                              <template v-if="cell">
-                                <div class="daily-calendar-cell__head">
-                                  <div class="daily-calendar-cell__date">
-                                    <span class="daily-calendar-cell__month">{{ cell.monthText }}</span>
-                                    <span class="daily-calendar-cell__day">{{ cell.dayText }}</span>
-                                  </div>
-                                  <NTag
-                                    v-if="cell.raw"
-                                    size="small"
-                                    :bordered="false"
-                                    :type="getDailyStatusTagType(cell.raw.reportStatus)"
-                                  >
-                                    {{ getDailyStatusText(cell.raw) }}
-                                  </NTag>
-                                </div>
-                                <div class="daily-calendar-cell__stage">{{ cell.raw?.stageName || (cell.muted ? '非培训日' : '—') }}</div>
-                                <div class="daily-calendar-cell__meta">
-                                  {{ cell.raw ? getDailyCellSummary(cell.raw) : '未进入培训区间' }}
-                                </div>
-                                <div class="daily-calendar-cell__tags">
-                                  <NTag v-if="cell.raw?.assessDate" size="small" :bordered="false" type="info">
-                                    考核 {{ formatDateDay(cell.raw.assessDate) }}
-                                  </NTag>
-                                  <NTag v-if="cell.raw?.passFlag === true" size="small" :bordered="false" type="success">通过</NTag>
-                                  <NTag v-else-if="cell.raw?.passFlag === false" size="small" :bordered="false" type="error">未通过</NTag>
-                                  <NTag v-if="cell.raw?.overtimeStageFlag" size="small" :bordered="false" type="error">超时</NTag>
-                                  <NTag v-if="cell.raw?.holidayFlag" size="small" :bordered="false">节假日</NTag>
-                                  <NTag v-if="cell.raw?.stageStartedFlag === false" size="small" :bordered="false">未开始</NTag>
-                                  <NTag v-else-if="cell.muted" size="small" :bordered="false">休息/空白</NTag>
-                                </div>
-                              </template>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <NEmpty v-else description="暂无日报日历数据" />
-                    </div>
+                    <PathDailyCalendar :calendar="dailyCalendar" />
                   </div>
                 </div>
               </NTabPane>
@@ -1695,6 +1819,85 @@ function openRetainDialog() {
           <div class="stage-dialog-actions">
             <NButton @click="showStageEndDialog = false">取消</NButton>
             <NButton type="primary" :loading="actionLoadingStageId === endingStage?.id" @click="handleSubmitEndStage">确认结束</NButton>
+          </div>
+        </template>
+      </NModal>
+
+      <NModal
+        :show="showFinalReviewDialog"
+        preset="card"
+        title="总体考评"
+        :style="{ width: '900px', maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)' }"
+        class="final-review-modal"
+        @update:show="value => !value && (showFinalReviewDialog = false)"
+      >
+        <NSpin :show="finalReviewTemplateLoading">
+          <div class="final-review-dialog">
+            <div class="final-review-summary">
+              <div>
+                <div class="final-review-summary__label">总体考评模板</div>
+                <div class="final-review-summary__title">{{ finalReviewTemplate?.name || detail?.finalTemplateName || '-' }}</div>
+              </div>
+              <div class="final-review-summary__score">
+                {{ finalReviewTotalScore }} / {{ finalReviewMaxScore }}
+              </div>
+            </div>
+
+            <div v-if="finalReviewGroupedItems.length" class="final-review-template">
+              <div v-for="group in finalReviewGroupedItems" :key="group.key" class="final-review-dimension">
+                <div class="final-review-dimension__header">
+                  <div class="final-review-dimension__title">{{ group.name }}</div>
+                  <NTag size="small" type="info" :bordered="false">{{ group.score }} / {{ group.maxScore }}</NTag>
+                </div>
+
+                <div class="final-review-item-list">
+                  <div v-for="item in group.items" :key="item.itemId" class="final-review-item">
+                    <div class="final-review-item__main">
+                      <div class="final-review-item__name">{{ item.itemName || '-' }}</div>
+                      <div v-if="item.itemDescription" class="final-review-item__desc">{{ item.itemDescription }}</div>
+                    </div>
+                    <div class="final-review-item__score">
+                      <NInputNumber
+                        v-model:value="item.score"
+                        :min="0"
+                        :max="Number(item.maxScore || 0)"
+                        :precision="1"
+                        clearable
+                        placeholder="得分"
+                      />
+                      <span class="final-review-item__max">/ {{ item.maxScore || 0 }}</span>
+                    </div>
+                    <NInput v-model:value="item.comment" class="final-review-item__comment" clearable placeholder="小项说明（选填）" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <NEmpty v-else description="当前总体考评模板暂无评分项" />
+
+            <div class="final-review-footer-form">
+              <div class="stage-dialog-form__item">
+                <div class="stage-dialog-form__label">总体评级</div>
+                <DictSelect v-model:model-value="finalReviewForm.rating" dict-code="assessment_stage_rating" />
+              </div>
+              <div class="stage-dialog-form__item stage-dialog-form__item--switch">
+                <div class="stage-dialog-form__label">考评结果</div>
+                <div class="stage-dialog-switch">
+                  <span class="stage-dialog-switch__text">{{ finalReviewForm.passFlag ? '通过' : '未通过' }}</span>
+                  <NSwitch v-model:value="finalReviewForm.passFlag" />
+                </div>
+              </div>
+              <div class="stage-dialog-form__item final-review-comment">
+                <div class="stage-dialog-form__label">考评说明</div>
+                <NInput v-model:value="finalReviewForm.finalComment" type="textarea" :rows="3" placeholder="请输入总体考评说明" />
+              </div>
+            </div>
+          </div>
+        </NSpin>
+        <template #action>
+          <div class="stage-dialog-actions">
+            <NButton @click="showFinalReviewDialog = false">取消</NButton>
+            <NButton type="primary" :loading="actionLoadingStageId === 'final-review'" @click="handleFinalReviewSubmit">提交考评</NButton>
           </div>
         </template>
       </NModal>
@@ -2654,6 +2857,148 @@ html.dark .stage-item__body {
   display: flex;
   justify-content: flex-end;
   gap: 16px;
+}
+
+.final-review-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 210px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.final-review-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgb(var(--layout-bg-color));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 85%);
+}
+
+.final-review-summary__label {
+  color: var(--n-text-color-3);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.final-review-summary__title {
+  margin-top: 4px;
+  color: var(--n-text-color-1);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.final-review-summary__score {
+  color: var(--em-primary-color);
+  font-size: 22px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.final-review-template {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.final-review-dimension {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgb(var(--container-bg-color));
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 1px 2px rgb(31 35 41 / 4%);
+}
+
+.final-review-dimension__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.final-review-dimension__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.final-review-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.final-review-item {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 168px minmax(180px, 0.9fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgb(var(--layout-bg-color));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 72%);
+}
+
+.final-review-item__main {
+  min-width: 0;
+}
+
+.final-review-item__name {
+  overflow: hidden;
+  color: var(--n-text-color-1);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.final-review-item__desc {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--n-text-color-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.final-review-item__score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.final-review-item__score :deep(.n-input-number) {
+  width: 112px;
+}
+
+.final-review-item__max {
+  color: var(--n-text-color-3);
+  white-space: nowrap;
+}
+
+.final-review-footer-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.8fr);
+  gap: 16px;
+}
+
+.final-review-comment {
+  grid-column: 1 / -1;
+}
+
+:deep(.final-review-modal > .n-card) {
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.final-review-modal .n-card__content) {
+  overflow: hidden;
 }
 
 .record-item__actions {

@@ -1,4 +1,5 @@
 const PUBLIC_PATHS = ['/login', '/403', '/404', '/500'];
+const PUBLIC_PREFIXES = ['/public/final-review/'];
 
 export default defineNuxtRouteMiddleware(async to => {
   const authStore = useAuthStore();
@@ -17,7 +18,7 @@ export default defineNuxtRouteMiddleware(async to => {
     return navigateTo('/login');
   }
 
-  if (PUBLIC_PATHS.includes(to.path)) {
+  if (PUBLIC_PATHS.includes(to.path) || PUBLIC_PREFIXES.some(prefix => to.path.startsWith(prefix))) {
     if (to.path === '/login' && authStore.isLogin) {
       await menuStore.ensureLoaded();
       return navigateTo(String(to.query.redirect || menuStore.homePath));

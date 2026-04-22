@@ -80,6 +80,12 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.intern-assessment.template.index'
   },
   {
+    label: '最终考核模板',
+    routeKey: 'intern_assessment_final_template',
+    routePath: '/intern-assessment/final-template',
+    component: 'view.intern-assessment.final-template.index'
+  },
+  {
     label: '题库管理',
     routeKey: 'intern_assessment_question',
     routePath: '/intern-assessment/question',

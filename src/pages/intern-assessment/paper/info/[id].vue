@@ -16,6 +16,7 @@ import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 import { fetchAssessmentPaperById, fetchAssessmentPaperRegenerate, fetchAssessmentPaperReview } from '@/service/api';
 import type { AssessmentPaperReviewBo, AssessmentPaperVo } from '@/types/app';
+import { normalizeAssessmentReviewResult } from '@/utils/assessment-dict';
 
 definePageMeta({
   title: '考核批阅'
@@ -233,7 +234,7 @@ function toggleQuestionPanel(item: ReviewQuestionItem, field: 'showStem' | 'show
                     <DictTag dict-code="assessment_question_type" :value="item.questionType" />
                     <DictTag dict-code="assessment_question_difficulty" :value="item.difficulty" />
                     <NTag :bordered="false" type="success">分值 {{ item.score ?? 0 }}</NTag>
-                    <span class="paper-item__review-result">自动判定 <DictTag dict-code="assessment_review_result" :value="item.finalResult" /></span>
+                    <span class="paper-item__review-result">自动判定 <DictTag dict-code="assessment_review_result" :value="normalizeAssessmentReviewResult(item.finalResult)" /></span>
                   </div>
                 </div>
 

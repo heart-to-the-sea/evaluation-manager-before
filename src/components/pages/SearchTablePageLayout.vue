@@ -18,7 +18,14 @@ const props = withDefaults(defineProps<Props>(), {
 
 const themeVars = useThemeVars();
 const showSearch = ref(false);
-const displayTotal = computed(() => (props.pagination ? null : props.total));
+const displayTotal = computed(() => {
+  const raw = props.pagination?.itemCount ?? props.total;
+  if (raw === null || raw === undefined || raw === '') {
+    return null;
+  }
+  const total = Number(raw);
+  return Number.isNaN(total) ? raw : total;
+});
 
 const emit = defineEmits<{
   refresh: [];
