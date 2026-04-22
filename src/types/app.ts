@@ -622,6 +622,24 @@ export interface AssessmentFinalReviewDimensionVo {
   items?: AssessmentFinalReviewItemVo[];
 }
 
+export interface AssessmentFinalReviewRecordVo {
+  id?: string;
+  linkId?: string;
+  pathId?: string;
+  userId?: string;
+  reviewerUserId?: string;
+  reviewerName?: string;
+  reviewerEmployeeNo?: string;
+  templateId?: string;
+  templateName?: string;
+  totalScore?: number | string;
+  comment?: string;
+  submittedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  dimensions?: AssessmentFinalReviewDimensionVo[];
+}
+
 export interface AssessmentFinalReviewLinkCreateBo {
   pathId?: string;
 }
@@ -832,6 +850,7 @@ export interface AssessmentInternPathVo {
   updatedAt?: string;
   stages?: AssessmentInternPathStageVo[];
   finalReviewDimensions?: AssessmentFinalReviewDimensionVo[];
+  finalReviewRecords?: AssessmentFinalReviewRecordVo[];
 }
 
 export interface AssessmentInternPathBo extends PageQuery {

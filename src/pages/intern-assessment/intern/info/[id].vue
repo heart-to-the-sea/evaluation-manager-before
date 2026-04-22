@@ -1,7 +1,7 @@
 ﻿<script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ArrowBackOutline, ChevronDownOutline, ChevronForwardOutline } from '@vicons/ionicons5';
-import { NButton, NDatePicker, NEmpty, NIcon, NInput, NInputNumber, NModal, NSpin, NSwitch, NTabPane, NTabs, NTag } from 'naive-ui';
+import { NButton, NDatePicker, NEmpty, NIcon, NInput, NInputNumber, NModal, NPopover, NSpin, NSwitch, NTabPane, NTabs, NTag } from 'naive-ui';
 import DictTag from '@/components/common/DictTag.vue';
 import DictSelect from '@/components/common/DictSelect.vue';
 import InfoGridCard from '@/components/common/InfoGridCard.vue';
@@ -83,7 +83,7 @@ const violationMap = ref<Record<string, AssessmentViolationRecordVo[]>>({});
 const exitRecords = ref<AssessmentExitRecordVo[]>([]);
 const expandedStageKeys = ref<string[]>([]);
 const routeActionHandled = ref(false);
-const activeTab = ref<'overview' | 'history' | 'daily'>('overview');
+const activeTab = ref<'overview' | 'history' | 'daily' | 'finalReview'>('overview');
 const showDailyDetailDialog = ref(false);
 const activeDailyCell = ref<AssessmentPathDailyCalendarDayVo | null>(null);
 
@@ -130,6 +130,217 @@ const finalReviewGroupedItems = computed(() => {
   });
   return Array.from(groups.values());
 });
+
+const finalReviewDetailGroups = computed(() =>
+  (detail.value?.finalReviewDimensions || []).map(group => ({
+    key: group.dimensionId || group.dimensionCode || group.dimensionName || 'default',
+    name: group.dimensionName || '未分组',
+    maxScore: Number(group.maxScore || 0),
+    score: Number(group.score || 0),
+    items: (group.items || []).map(item => ({
+      ...item,
+      maxScore: Number(item.maxScore || 0),
+      score: item.score == null ? null : Number(item.score)
+    }))
+  }))
+);
+
+const finalReviewSummaryItems = computed(() => [
+  {
+    label: '总体评级',
+    dictCode: 'assessment_stage_rating',
+    dictValue: detail.value?.finalRating,
+    fallbackLabel: detail.value?.finalRatingLabel || detail.value?.finalRating || '-'
+  },
+  {
+    label: '总体结果',
+    dictCode: 'assessment_pass_result',
+    dictValue: detail.value?.finalPassFlag == null ? 'pending' : detail.value?.finalPassFlag ? 'passed' : 'failed',
+    fallbackLabel:
+      detail.value?.finalPassFlag == null ? '-' : detail.value?.finalPassFlag ? '通过' : '未通过'
+  },
+  {
+    label: '总得分',
+    text: detail.value?.finalScore == null ? '-' : String(detail.value?.finalScore)
+  },
+  {
+    label: '考评时间',
+    text: detail.value?.finalReviewedAt || '-'
+  }
+]);
+
+const finalReviewRecordList = computed(() =>
+  (detail.value?.finalReviewRecords || []).map(record => ({
+    ...record,
+    totalScore: record.totalScore == null ? '-' : String(record.totalScore),
+    dimensions: (record.dimensions || []).map(group => ({
+      ...group,
+      maxScore: Number(group.maxScore || 0),
+      score: Number(group.score || 0),
+      items: (group.items || []).map(item => ({
+        ...item,
+        maxScore: Number(item.maxScore || 0),
+        score: item.score == null ? null : Number(item.score)
+      }))
+    }))
+  }))
+);
+
+const finalReviewCompareColumns = computed(() =>
+  finalReviewRecordList.value.map((record, index) => ({
+    key: record.id || `reviewer-${index}`,
+    reviewerName: record.reviewerName || '-',
+    reviewerEmployeeNo: record.reviewerEmployeeNo || '',
+    submittedAt: record.submittedAt || '-',
+    totalScore: Number(record.totalScore || 0),
+    comment: record.comment || '',
+    dimensions: record.dimensions || []
+  }))
+);
+
+const finalReviewCompareGroups = computed(() => {
+  const groupBucket: Array<{
+    key: string;
+    name: string;
+    maxScore: number;
+    items: Array<{
+      key: string;
+      name: string;
+      maxScore: number;
+    }>;
+  }> = [];
+
+  const findGroup = (key: string) => groupBucket.find(item => item.key === key);
+
+  const ensureGroup = (
+    dimensionId?: string,
+    dimensionCode?: string,
+    dimensionName?: string,
+    maxScore?: number | string,
+    items?: Array<{ itemId?: string; itemName?: string; maxScore?: number | string }>
+  ) => {
+    const key = dimensionId || dimensionCode || dimensionName || `dimension-${groupBucket.length + 1}`;
+    let group = findGroup(key);
+    if (!group) {
+      group = {
+        key,
+        name: dimensionName || '未命名维度',
+        maxScore: 0,
+        items: []
+      };
+      groupBucket.push(group);
+    }
+    group.maxScore = Math.max(group.maxScore, Number(maxScore || 0));
+
+    (items || []).forEach((item, itemIndex) => {
+      const itemKey = item.itemId || item.itemName || `${key}-item-${itemIndex + 1}`;
+      const current = group!.items.find(child => child.key === itemKey);
+      if (current) {
+        current.maxScore = Math.max(current.maxScore, Number(item.maxScore || 0));
+        return;
+      }
+      group!.items.push({
+        key: itemKey,
+        name: item.itemName || '未命名评分项',
+        maxScore: Number(item.maxScore || 0)
+      });
+    });
+  };
+
+  (finalReviewDetailGroups.value || []).forEach(group => {
+    ensureGroup(
+      (group as any).dimensionId,
+      (group as any).dimensionCode,
+      group.name,
+      group.maxScore,
+      (group.items || []).map(item => ({
+        itemId: item.itemId,
+        itemName: item.itemName,
+        maxScore: item.maxScore
+      }))
+    );
+  });
+
+  (finalReviewCompareColumns.value || []).forEach(record => {
+    (record.dimensions || []).forEach(group => {
+      ensureGroup(
+        group.dimensionId,
+        group.dimensionCode,
+        group.dimensionName,
+        group.maxScore,
+        (group.items || []).map(item => ({
+          itemId: item.itemId,
+          itemName: item.itemName,
+          maxScore: item.maxScore
+        }))
+      );
+    });
+  });
+
+  return groupBucket.map(group => {
+    const scores = finalReviewCompareColumns.value.map(record => {
+      const recordGroup = (record.dimensions || []).find(
+        dimension =>
+          (dimension.dimensionId && dimension.dimensionId === group.key) ||
+          (dimension.dimensionCode && dimension.dimensionCode === group.key) ||
+          dimension.dimensionName === group.name
+      );
+      return recordGroup?.score == null ? null : Number(recordGroup.score);
+    });
+    const validDimensionScores = scores.filter(score => score !== null && !Number.isNaN(score)) as number[];
+
+    const items = group.items.map(item => {
+      const itemScores = finalReviewCompareColumns.value.map(record => {
+        const recordGroup = (record.dimensions || []).find(
+          dimension =>
+            (dimension.dimensionId && dimension.dimensionId === group.key) ||
+            (dimension.dimensionCode && dimension.dimensionCode === group.key) ||
+            dimension.dimensionName === group.name
+        );
+        const recordItem = (recordGroup?.items || []).find(
+          current =>
+            (current.itemId && current.itemId === item.key) ||
+            current.itemName === item.name
+        );
+        return recordItem?.score == null ? null : Number(recordItem.score);
+      });
+      const validScores = itemScores.filter(score => score !== null && !Number.isNaN(score)) as number[];
+      return {
+        ...item,
+        scores: itemScores,
+        averageScore: validScores.length ? validScores.reduce((sum, score) => sum + score, 0) / validScores.length : null
+      };
+    });
+
+    return {
+      key: group.key,
+      name: group.name,
+      maxScore: group.maxScore,
+      items,
+      scores,
+      averageScore: validDimensionScores.length
+        ? validDimensionScores.reduce((sum, score) => sum + score, 0) / validDimensionScores.length
+        : null
+    };
+  });
+});
+
+const finalReviewAverageTotalScore = computed(() => {
+  const scores = finalReviewCompareColumns.value.map(item => Number(item.totalScore || 0));
+  if (!scores.length) return null;
+  return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+});
+
+const hasFinalReviewAside = computed(
+  () =>
+    Boolean(
+      detail.value?.finalReviewedAt ||
+      detail.value?.finalRating ||
+      detail.value?.finalComment ||
+      finalReviewDetailGroups.value.length ||
+      finalReviewCompareColumns.value.length
+    )
+);
 
 const violationForm = reactive({
   violationType: 'discipline',
@@ -218,6 +429,13 @@ function formatDateToText(date?: Date | null) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const day = `${date.getDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatReviewScore(value?: number | string | null) {
+  if (value === null || value === undefined || value === '') return '-';
+  const numberValue = Number(value);
+  if (Number.isNaN(numberValue)) return '-';
+  return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(1);
 }
 
 function parseColor(color?: string | null) {
@@ -575,6 +793,12 @@ watch(
   }
 );
 
+watch(hasFinalReviewAside, value => {
+  if (value && activeTab.value === 'finalReview') {
+    activeTab.value = 'overview';
+  }
+});
+
 onMounted(() => {
   loadDetail();
 });
@@ -843,6 +1067,11 @@ function toggleStageExpanded(stage: AssessmentInternPathStageVo) {
 function formatDateDay(value?: string | null) {
   if (!value) return '-';
   return value.includes('T') ? value.slice(0, 10) : value.slice(0, 10);
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+  return value.includes('T') ? value.slice(0, 19).replace('T', ' ') : value.slice(0, 19);
 }
 
 function getDailyStatusTagType(status?: AssessmentPathDailyCalendarDayVo['reportStatus']): 'default' | 'success' | 'warning' | 'error' | 'info' {
@@ -1365,6 +1594,7 @@ function openRetainDialog() {
       <NTabs v-model:value="activeTab" type="line" animated class="detail-page-tabs">
         <NTabPane name="overview" tab="基本信息" />
         <NTabPane name="history" tab="培训履历" />
+        <NTabPane v-if="!hasFinalReviewAside" name="finalReview" tab="总体考评" />
         <NTabPane name="daily" tab="日报" />
       </NTabs>
     </template>
@@ -1471,6 +1701,8 @@ function openRetainDialog() {
                 <span>当前阶段：{{ currentStage?.stageName || detail.currentStageName || '-' }}</span>
               </div>
             </div>
+            <div class="detail-content-layout" :class="{ 'detail-content-layout--with-aside': hasFinalReviewAside }">
+              <div class="detail-content-layout__main">
             <NTabs v-model:value="activeTab" type="line" animated class="detail-tabs">
               <NTabPane name="overview" tab="基本信息">
                   <div class="detail-tab-pane">
@@ -1700,6 +1932,136 @@ function openRetainDialog() {
                 </div>
               </NTabPane>
 
+              <NTabPane v-if="!hasFinalReviewAside" name="finalReview" tab="总体考评">
+                <div class="detail-tab-pane">
+                  <div class="detail-overview-grid">
+                    <div class="detail-section">
+                      <div class="detail-section__title">考评概览</div>
+                      <InfoGridCard :items="finalReviewSummaryItems" />
+                    </div>
+
+                    <div class="detail-section">
+                      <div class="detail-section__title">考评说明</div>
+                      <div class="detail-banner detail-banner--default">
+                        <div class="detail-banner__title">
+                          <span>总体考评结果说明</span>
+                        </div>
+                        <div class="detail-banner__meta">
+                          <span>评分模板：{{ detail?.finalTemplateName || '-' }}</span>
+                          <span>维度数量：{{ finalReviewDetailGroups.length }}</span>
+                        </div>
+                        <div class="detail-banner__desc">
+                          {{ detail?.finalComment || '暂无总体考评说明' }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="detail-section">
+                    <div class="detail-section__title">评分对比</div>
+
+                    <div v-if="finalReviewCompareColumns.length && finalReviewCompareGroups.length" class="final-review-compare">
+                      <div class="final-review-compare__scroll">
+                        <div class="final-review-compare__grid">
+                          <template v-for="group in finalReviewCompareGroups" :key="group.key">
+                            <div class="final-review-compare__group-card">
+                              <div class="final-review-compare__group-header">
+                                <div class="final-review-compare__group-name">{{ group.name }}</div>
+                                <NPopover trigger="hover" placement="left" :show-arrow="false">
+                                  <template #trigger>
+                                    <div class="final-review-compare__score-pill">
+                                      平均 {{ formatReviewScore(group.averageScore) }} / {{ formatReviewScore(group.maxScore) }}
+                                    </div>
+                                  </template>
+                                  <div class="final-review-compare__popover">
+                                    <div class="final-review-compare__popover-title">{{ group.name }}评分明细</div>
+                                    <div
+                                      v-for="(score, index) in group.scores"
+                                      :key="`${group.key}-dimension-popover-${index}`"
+                                      class="final-review-compare__popover-row"
+                                    >
+                                      <span>{{ finalReviewCompareColumns[index]?.reviewerName || '-' }}</span>
+                                      <strong>{{ formatReviewScore(score) }}</strong>
+                                    </div>
+                                  </div>
+                                </NPopover>
+                              </div>
+                              <div class="final-review-compare__rows">
+                                <div
+                                  v-for="item in group.items"
+                                  :key="`${group.key}-${item.key}`"
+                                  class="final-review-compare__item-card"
+                                >
+                                  <div class="final-review-compare__item-title">
+                                    <div class="final-review-compare__item-name">{{ item.name }}</div>
+                                    <div class="final-review-compare__item-meta">满分 {{ formatReviewScore(item.maxScore) }}</div>
+                                  </div>
+                                  <NPopover trigger="hover" placement="left" :show-arrow="false">
+                                    <template #trigger>
+                                      <div class="final-review-compare__score-pill final-review-compare__score-pill--item">
+                                        平均 {{ formatReviewScore(item.averageScore) }}
+                                      </div>
+                                    </template>
+                                    <div class="final-review-compare__popover">
+                                      <div class="final-review-compare__popover-title">{{ item.name }}评分明细</div>
+                                      <div
+                                        v-for="(score, index) in item.scores"
+                                        :key="`${group.key}-${item.key}-popover-${index}`"
+                                        class="final-review-compare__popover-row"
+                                      >
+                                        <span>{{ finalReviewCompareColumns[index]?.reviewerName || '-' }}</span>
+                                        <strong>{{ formatReviewScore(score) }}</strong>
+                                      </div>
+                                    </div>
+                                  </NPopover>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+
+                          <div class="final-review-compare__total-card">
+                            <div class="final-review-compare__footer-title">总分</div>
+                            <NPopover trigger="hover" placement="left" :show-arrow="false">
+                              <template #trigger>
+                                <div class="final-review-compare__score-pill final-review-compare__score-pill--total">
+                                  平均 {{ formatReviewScore(finalReviewAverageTotalScore) }}
+                                </div>
+                              </template>
+                              <div class="final-review-compare__popover">
+                                <div class="final-review-compare__popover-title">总分明细</div>
+                                <div
+                                  v-for="column in finalReviewCompareColumns"
+                                  :key="`${column.key}-total-popover`"
+                                  class="final-review-compare__popover-row"
+                                >
+                                  <span>{{ column.reviewerName }}</span>
+                                  <strong>{{ formatReviewScore(column.totalScore) }}</strong>
+                                </div>
+                              </div>
+                            </NPopover>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <NEmpty v-else description="暂无评委评分记录" />
+                  </div>
+
+                  <div v-if="finalReviewCompareColumns.length" class="detail-section">
+                    <div class="detail-section__title">评委说明</div>
+                    <div class="final-review-remarks">
+                      <div v-for="column in finalReviewCompareColumns" :key="`${column.key}-remark`" class="final-review-remarks__item">
+                        <div class="final-review-remarks__header">
+                          <span>{{ column.reviewerName }}</span>
+                          <span>{{ column.reviewerEmployeeNo || '无工号' }}</span>
+                        </div>
+                        <div class="final-review-remarks__content">{{ column.comment || '暂无评委说明' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </NTabPane>
+
               <NTabPane name="daily" tab="日报">
                 <div class="detail-tab-pane">
                   <div class="detail-section">
@@ -1708,6 +2070,126 @@ function openRetainDialog() {
                 </div>
               </NTabPane>
             </NTabs>
+              </div>
+
+              <aside v-if="hasFinalReviewAside" class="detail-content-layout__aside">
+                <div class="final-review-aside">
+                  <div class="detail-section detail-section--aside">
+                    <div class="detail-section__header detail-section__header--aside-summary">
+                      <div class="detail-section__heading">
+                        <div class="detail-section__title">总体考评</div>
+                        <div class="detail-section__subtitle">{{ detail?.finalTemplateName || '暂无考评模板' }}</div>
+                      </div>
+                      <NTag size="small" type="info" :bordered="false">
+                        {{ formatReviewScore(finalReviewAverageTotalScore ?? detail?.finalScore ?? null) }} 分
+                      </NTag>
+                    </div>
+                    <InfoGridCard :items="finalReviewSummaryItems" :columns="2" />
+                  </div>
+
+                  <div class="detail-section detail-section--aside">
+                    <div class="detail-section__title">评分对比</div>
+                    <div v-if="finalReviewCompareColumns.length && finalReviewCompareGroups.length" class="final-review-compare final-review-compare--aside">
+                      <div class="final-review-compare__scroll">
+                        <div class="final-review-compare__grid">
+                          <template v-for="group in finalReviewCompareGroups" :key="group.key">
+                            <div class="final-review-compare__group-card">
+                              <div class="final-review-compare__group-header">
+                                <div class="final-review-compare__group-name">{{ group.name }}</div>
+                                <NPopover trigger="hover" placement="left" :show-arrow="false">
+                                  <template #trigger>
+                                    <div class="final-review-compare__score-pill">
+                                      平均 {{ formatReviewScore(group.averageScore) }} / {{ formatReviewScore(group.maxScore) }}
+                                    </div>
+                                  </template>
+                                  <div class="final-review-compare__popover">
+                                    <div class="final-review-compare__popover-title">{{ group.name }}评分明细</div>
+                                    <div
+                                      v-for="(score, index) in group.scores"
+                                      :key="`${group.key}-aside-dimension-popover-${index}`"
+                                      class="final-review-compare__popover-row"
+                                    >
+                                      <span>{{ finalReviewCompareColumns[index]?.reviewerName || '-' }}</span>
+                                      <strong>{{ formatReviewScore(score) }}</strong>
+                                    </div>
+                                  </div>
+                                </NPopover>
+                              </div>
+                              <div class="final-review-compare__rows">
+                                <div
+                                  v-for="item in group.items"
+                                  :key="`${group.key}-${item.key}-aside`"
+                                  class="final-review-compare__item-card"
+                                >
+                                  <div class="final-review-compare__item-title">
+                                    <div class="final-review-compare__item-name">{{ item.name }}</div>
+                                    <div class="final-review-compare__item-meta">满分 {{ formatReviewScore(item.maxScore) }}</div>
+                                  </div>
+                                  <NPopover trigger="hover" placement="left" :show-arrow="false">
+                                    <template #trigger>
+                                      <div class="final-review-compare__score-pill final-review-compare__score-pill--item">
+                                        平均 {{ formatReviewScore(item.averageScore) }}
+                                      </div>
+                                    </template>
+                                    <div class="final-review-compare__popover">
+                                      <div class="final-review-compare__popover-title">{{ item.name }}评分明细</div>
+                                      <div
+                                        v-for="(score, index) in item.scores"
+                                        :key="`${group.key}-${item.key}-aside-popover-${index}`"
+                                        class="final-review-compare__popover-row"
+                                      >
+                                        <span>{{ finalReviewCompareColumns[index]?.reviewerName || '-' }}</span>
+                                        <strong>{{ formatReviewScore(score) }}</strong>
+                                      </div>
+                                    </div>
+                                  </NPopover>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+
+                          <div class="final-review-compare__total-card">
+                            <div class="final-review-compare__footer-title">总分</div>
+                            <NPopover trigger="hover" placement="left" :show-arrow="false">
+                              <template #trigger>
+                                <div class="final-review-compare__score-pill final-review-compare__score-pill--total">
+                                  平均 {{ formatReviewScore(finalReviewAverageTotalScore) }}
+                                </div>
+                              </template>
+                              <div class="final-review-compare__popover">
+                                <div class="final-review-compare__popover-title">总分明细</div>
+                                <div
+                                  v-for="column in finalReviewCompareColumns"
+                                  :key="`${column.key}-aside-total-popover`"
+                                  class="final-review-compare__popover-row"
+                                >
+                                  <span>{{ column.reviewerName }}</span>
+                                  <strong>{{ formatReviewScore(column.totalScore) }}</strong>
+                                </div>
+                              </div>
+                            </NPopover>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <NEmpty v-else description="暂无评委评分记录" />
+                  </div>
+
+                  <div v-if="finalReviewCompareColumns.length" class="detail-section detail-section--aside">
+                    <div class="detail-section__title">评委说明</div>
+                    <div class="final-review-remarks final-review-remarks--aside">
+                      <div v-for="column in finalReviewCompareColumns" :key="`${column.key}-aside-remark`" class="final-review-remarks__item">
+                        <div class="final-review-remarks__header">
+                          <span>{{ column.reviewerName }}</span>
+                          <span>{{ column.reviewerEmployeeNo || '无工号' }}</span>
+                        </div>
+                        <div class="final-review-remarks__content">{{ column.comment || '暂无评委说明' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
           </template>
       </NSpin>
 
@@ -2079,6 +2561,73 @@ function openRetainDialog() {
   flex-direction: column;
   gap: 16px;
   padding-top: 0;
+}
+
+.detail-content-layout {
+  display: block;
+}
+
+.detail-content-layout--with-aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(700px, 0.94fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.detail-content-layout__main {
+  min-width: 0;
+}
+
+.detail-content-layout__aside {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+
+.final-review-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 188px);
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(31 35 41 / 18%) transparent;
+}
+
+.final-review-aside::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.final-review-aside::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(31 35 41 / 18%);
+}
+
+.final-review-aside::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.detail-section--aside {
+  min-width: 0;
+}
+
+.detail-section__header--aside-summary {
+  align-items: flex-start;
+}
+
+.detail-section__header--aside-summary .detail-section__title {
+  margin-bottom: 6px;
+}
+
+.detail-section__heading {
+  min-width: 0;
+}
+
+.detail-section__subtitle {
+  color: var(--n-text-color-3);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .daily-calendar-panel {
@@ -2972,6 +3521,19 @@ html.dark .stage-item__body {
   gap: 8px;
 }
 
+.final-review-item__score--readonly {
+  justify-content: flex-end;
+  min-width: 92px;
+  color: var(--em-primary-color);
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.final-review-item__value {
+  line-height: 1;
+}
+
 .final-review-item__score :deep(.n-input-number) {
   width: 112px;
 }
@@ -2979,6 +3541,212 @@ html.dark .stage-item__body {
 .final-review-item__max {
   color: var(--n-text-color-3);
   white-space: nowrap;
+}
+
+.final-review-item__desc--comment {
+  margin-top: 6px;
+  color: var(--n-text-color-2);
+}
+
+.final-review-compare {
+  border-radius: 14px;
+  background: rgb(var(--container-bg-color));
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 1px 2px rgb(31 35 41 / 4%);
+}
+
+.final-review-compare--aside {
+  border-radius: 12px;
+  background: rgb(var(--container-bg-color));
+  box-shadow: none;
+}
+
+html.dark .final-review-compare {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 1px 2px rgb(0 0 0 / 18%);
+}
+
+html.dark .final-review-compare--aside {
+  box-shadow: none;
+}
+
+.final-review-compare__scroll {
+  overflow: visible;
+  border-radius: 14px;
+}
+
+.final-review-compare__grid {
+  display: flex;
+  width: 100%;
+  min-width: 100%;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.final-review-compare__group-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgb(var(--layout-bg-color));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 85%);
+}
+
+.final-review-compare__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.final-review-compare__group-name {
+  color: var(--n-text-color-1);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.final-review-compare__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+}
+
+.final-review-compare__item-card,
+.final-review-compare__total-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgb(var(--container-bg-color));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 72%);
+}
+
+.final-review-compare__item-card {
+  margin-left: 0;
+}
+
+.final-review-compare__item-card:hover,
+.final-review-compare__total-card:hover {
+  background: rgb(var(--container-bg-color) / 88%);
+}
+
+.final-review-compare__item-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.final-review-compare__item-name {
+  min-width: 0;
+  color: var(--n-text-color-1);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.final-review-compare__item-meta {
+  flex-shrink: 0;
+  color: var(--n-text-color-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.final-review-compare__score-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgb(var(--em-primary-color-rgb) / 0.08);
+  color: var(--em-primary-color);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.final-review-compare__score-pill--item {
+  flex-shrink: 0;
+}
+
+.final-review-compare__footer-title {
+  color: var(--n-text-color-1);
+  font-weight: 700;
+}
+
+.final-review-compare__popover {
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.final-review-compare__popover-title {
+  margin-bottom: 8px;
+  color: var(--n-text-color-1);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.final-review-compare__popover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  color: var(--n-text-color-2);
+  font-size: 13px;
+}
+
+.final-review-compare__popover-row + .final-review-compare__popover-row {
+  border-top: 1px solid rgb(var(--border-color) / 70%);
+}
+
+.final-review-compare__popover-row strong {
+  color: var(--em-primary-color);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.final-review-remarks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.final-review-remarks--aside {
+  grid-template-columns: 1fr;
+}
+
+.final-review-remarks__item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgb(var(--container-bg-color));
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 1px 2px rgb(31 35 41 / 4%);
+}
+
+.final-review-remarks__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--n-text-color-1);
+  font-weight: 600;
+}
+
+.final-review-remarks__content {
+  margin-top: 10px;
+  color: var(--n-text-color-2);
+  line-height: 1.6;
+  word-break: break-word;
 }
 
 .final-review-footer-form {
@@ -3017,6 +3785,19 @@ html.dark .stage-item__body {
 }
 
 @media (width <= 960px) {
+  .detail-content-layout--with-aside {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-content-layout__aside {
+    position: static;
+  }
+
+  .final-review-aside {
+    max-height: none;
+    padding: 0;
+  }
+
   .daily-calendar-panel__header {
     flex-direction: column;
   }
@@ -3070,6 +3851,22 @@ html.dark .stage-item__body {
 
   .daily-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .final-review-remarks {
+    grid-template-columns: 1fr;
+  }
+
+  .final-review-compare__item-card,
+  .final-review-compare__total-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .final-review-compare__item-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }
 </style>
