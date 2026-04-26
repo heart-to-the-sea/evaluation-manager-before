@@ -991,6 +991,7 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
   width: 300px;
   flex-shrink: 0;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
 
   > .content-card {
@@ -1003,6 +1004,7 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
       min-height: 0;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
   }
 }
@@ -1041,10 +1043,27 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
 .content-card__body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 12px 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+// 侧边栏卡片
+.workbench-sidebar {
+  > .content-card:last-child {
+    .content-card__body {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .report-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+  }
 }
 
 // 阶段说明
@@ -1319,7 +1338,8 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
     min-height: 0;
 
     .content-card__body {
-      flex: 1;
+      // flex: 1;
+      height: 100px;
       min-height: 0;
       overflow-y: auto;
     }
@@ -1337,9 +1357,7 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex-shrink: 0;
 
   &::-webkit-scrollbar {
     width: 4px;
@@ -1358,6 +1376,7 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
   padding: 10px 12px;
   border-radius: 8px;
   background: rgb(var(--layout-bg-color));
+  flex-shrink: 0;
 }
 
 .report-item__header {
