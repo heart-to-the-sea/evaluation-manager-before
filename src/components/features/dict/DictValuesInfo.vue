@@ -31,6 +31,10 @@ const { handleSorter, getSortOrder, createSorter, createSorterRender } = useTabl
 
 const editedRows = computed(() => dataList.value.filter(item => item.isNew || item.isEditing));
 
+function toStr(val: string | number | null | undefined): string {
+  return val == null ? '0' : String(val);
+}
+
 function compareText(left?: string | null, right?: string | null) {
   return String(left || '').localeCompare(String(right || ''), 'zh-CN');
 }
@@ -150,9 +154,9 @@ const columns = computed<DataTableColumns<RowData>>(() => ([
     width: 100,
     render: row =>
       row.isNew || row.isEditing ? (
-        <NSwitch value={row.status} checked-value="1" unchecked-value="0" onUpdateValue={value => (row.status = value)} />
+        <NSwitch value={toStr(row.status)} checked-value="1" unchecked-value="0" onUpdateValue={value => (row.status = value)} />
       ) : (
-        <NTag type={row.status === '1' ? 'success' : 'error'} bordered={false}>{row.status === '1' ? '启用' : '禁用'}</NTag>
+        <DictTag dictCode="sys_normal_disable" value={row.status} />
       )
   },
   {
