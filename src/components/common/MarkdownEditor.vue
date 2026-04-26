@@ -5,12 +5,14 @@ interface Props {
   value?: string;
   placeholder?: string;
   disabled?: boolean;
+  previewOnly?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   value: '',
   placeholder: '请输入内容（支持Markdown语法）...',
-  disabled: false
+  disabled: false,
+  previewOnly: false
 });
 
 const emit = defineEmits<{
@@ -101,8 +103,8 @@ const renderedContent = computed(() => renderMarkdown(content.value));
 </script>
 
 <template>
-  <div class="markdown-editor" :class="{ 'markdown-editor--disabled': disabled }">
-    <div class="markdown-editor__toolbar">
+  <div class="markdown-editor" :class="{ 'markdown-editor--disabled': disabled, 'markdown-editor--preview-only': previewOnly }">
+    <div v-if="!previewOnly" class="markdown-editor__toolbar">
       <NButton size="tiny" quaternary @click="insertBold" title="加粗 (Ctrl+B)">
         <template #icon>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -186,6 +188,7 @@ const renderedContent = computed(() => renderMarkdown(content.value));
     </div>
     <div class="markdown-editor__body">
       <textarea
+        v-if="!previewOnly"
         ref="textareaRef"
         :value="content"
         :placeholder="placeholder"
@@ -211,6 +214,16 @@ const renderedContent = computed(() => renderMarkdown(content.value));
   &--disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  &--preview-only {
+    .markdown-editor__body {
+      border: none;
+    }
+
+    .markdown-editor__preview {
+      flex: 1;
+    }
   }
 }
 

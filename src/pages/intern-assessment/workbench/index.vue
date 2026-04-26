@@ -464,6 +464,10 @@ const assessmentForm = reactive({
 // 当前编辑的日报
 const currentEditReport = ref<typeof mockReports[0] | null>(null);
 
+// 查看日报弹窗状态
+const showViewReportModal = ref(false);
+const currentViewReport = ref<typeof mockReports[0] | null>(null);
+
 function openReportModal() {
   // 获取今日日报数据填充表单
   const todayReport = mockReports.find(r => r.date === '2026-04-24');
@@ -478,6 +482,18 @@ function openReportModal() {
 function closeReportModal() {
   showReportModal.value = false;
   currentEditReport.value = null;
+}
+
+function openViewReportModal(report: typeof mockReports[0]) {
+  currentViewReport.value = report;
+  showViewReportModal.value = true;
+}
+
+const currentViewReportContent = computed(() => currentViewReport.value?.content || '');
+
+function closeViewReportModal() {
+  showViewReportModal.value = false;
+  currentViewReport.value = null;
 }
 
 function handleSubmitReport() {
@@ -710,19 +726,15 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
               </div>
               <div class="content-card__body">
                 <div class="report-list">
-                  <div v-for="report in mockReports" :key="report.date" class="report-item">
+                  <div v-for="report in mockReports" :key="report.date" class="report-item" @click="openViewReportModal(report)">
                     <div class="report-item__header">
                       <span class="report-item__date">{{ report.date }}</span>
-                      <NTag size="small" :bordered="false" type="success">已提交</NTag>
+                      <DictTag dict-code="assessment_path_stage_status" value="passed" />
                     </div>
                     <div class="report-item__content">
                       <div class="report-item__line">
                         <span class="report-item__label">内容</span>
                         <span class="report-item__text">{{ report.content }}</span>
-                      </div>
-                      <div class="report-item__line">
-                        <span class="report-item__label">计划</span>
-                        <span class="report-item__text">{{ report.plan }}</span>
                       </div>
                     </div>
                   </div>
@@ -755,6 +767,29 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
       <div class="em-dialog-actions">
         <NButton @click="closeReportModal">取消</NButton>
         <NButton type="primary" @click="handleSubmitReport">提交</NButton>
+      </div>
+    </template>
+  </NModal>
+
+  <!-- 查看日报弹窗 -->
+  <NModal
+    v-model:show="showViewReportModal"
+    preset="card"
+    :title="currentViewReport?.date + ' 日报'"
+    :style="{ width: '80%' }"
+    :mask-closable="true"
+  >
+    <div class="report-modal-form">
+      <div class="form-field form-field--large">
+        <MarkdownEditor
+          v-model:value="currentViewReportContent"
+          preview-only
+        />
+      </div>
+    </div>
+    <template #action>
+      <div class="em-dialog-actions">
+        <NButton @click="closeViewReportModal">关闭</NButton>
       </div>
     </template>
   </NModal>
@@ -1377,6 +1412,12 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
   border-radius: 8px;
   background: rgb(var(--layout-bg-color));
   flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgb(var(--border-color) / 50%);
+  }
 }
 
 .report-item__header {
@@ -1389,6 +1430,17 @@ function getDifficultyTagType(difficulty: string): 'success' | 'warning' | 'erro
   color: var(--n-text-color-1);
   font-size: 12px;
   font-weight: 600;
+}
+
+.report-item__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgb(82 196 26 / 15%);
+  color: rgb(82 196 26);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .report-item__content {
