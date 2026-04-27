@@ -97,15 +97,15 @@ const hasHeader = computed(() => Boolean(slots.header || slots.title || slots.ac
   box-sizing: border-box;
   min-height: 0;
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   margin-bottom: 16px;
   @include scrollbar.scrollbar(7px, rgb(31 35 41 / 18%), rgb(255 255 255 / 18%));
 }
 
 .info-page-layout__content-inner {
   box-sizing: border-box;
-  min-height: 100%;
+  min-height: 0;
+  height: 100%;
   padding: 16px 20px 20px;
 }
 
