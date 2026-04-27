@@ -4,6 +4,7 @@ import { Add, ArrowDown, ArrowUp, Remove } from '@vicons/ionicons5';
 import { NButton, NEmpty, NForm, NFormItem, NGrid, NGi, NIcon, NInput, NInputNumber, NModal, NSelect, NSpin, NTag, NTooltip } from 'naive-ui';
 import type { FormInst, FormRules, SelectOption } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
+import MarkdownPreview from '@/components/common/MarkdownPreview.vue';
 import { fetchAssessmentTemplateAdd, fetchAssessmentTemplateUpdate } from '@/service/api';
 import type { AssessmentPathTemplateBo, AssessmentPathTemplateVo, AssessmentStageVo } from '@/types/app';
 
@@ -337,13 +338,20 @@ async function handleSubmit() {
 
               <div class="stage-preview__row">
                 <span class="stage-preview__label">{{ TEXT.stageDescription }}：</span>
-                <span>{{ getStageDetail(value.stageId)?.description || TEXT.noDescription }}</span>
+                <MarkdownPreview
+                  class="stage-preview__markdown"
+                  :content="getStageDetail(value.stageId)?.description"
+                  :empty-text="TEXT.noDescription"
+                  compact
+                />
               </div>
               <div class="stage-preview__row">
                 <span class="stage-preview__label">{{ TEXT.passScore }}：</span>
                 <span>{{ getStageDetail(value.stageId)?.passScore ?? '-' }}</span>
-                <span class="ml-16px stage-preview__label">{{ TEXT.passRemark }}：</span>
-                <span>{{ getStageDetail(value.stageId)?.passRemark || '-' }}</span>
+              </div>
+              <div class="stage-preview__row">
+                <span class="stage-preview__label">{{ TEXT.passRemark }}：</span>
+                <MarkdownPreview class="stage-preview__markdown" :content="getStageDetail(value.stageId)?.passRemark" empty-text="-" compact />
               </div>
               <div class="stage-preview__row">
                 <span class="stage-preview__label">{{ TEXT.materials }}：</span>
@@ -449,6 +457,7 @@ async function handleSubmit() {
 .stage-preview__row {
   display: flex;
   align-items: flex-start;
+  gap: 8px;
   margin-bottom: 6px;
   line-height: 1.7;
 
@@ -460,6 +469,11 @@ async function handleSubmit() {
 .stage-preview__label {
   flex-shrink: 0;
   color: var(--n-text-color-2);
+}
+
+.stage-preview__markdown {
+  flex: 1;
+  min-width: 0;
 }
 
 :global(.template-dialog-modal .n-card) {

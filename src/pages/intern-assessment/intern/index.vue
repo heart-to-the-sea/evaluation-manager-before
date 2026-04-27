@@ -83,6 +83,7 @@ const TEXT = {
   examTime: '考核时间',
   reviewTime: '批阅时间',
   comment: '结果说明',
+  assessRequested: '已申请考核',
   pendingReview: '待批阅',
   passed: '已通过',
   failed: '未通过',
@@ -355,7 +356,7 @@ function handleViewPath(row: RowData) {
 }
 
 function canRegisterViolation(row: RowData) {
-  if (!row.id || !['in_progress', 'pending_review'].includes(row.status || '')) return false;
+  if (!row.id || !['in_progress', 'assess_requested', 'pending_review'].includes(row.status || '')) return false;
   const currentStage = getCurrentStageForRow(row);
   return Boolean(currentStage?.id && ['in_progress', 'failed', 'pending_review'].includes(currentStage.status || ''));
 }
@@ -366,7 +367,7 @@ function isCompletedPath(row: RowData) {
 
 function hasStartedPath(row: RowData) {
   if (!row) return false;
-  if (['in_progress', 'pending_review', 'pending_final_review', 'final_failed', 'completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) {
+  if (['in_progress', 'assess_requested', 'pending_review', 'pending_final_review', 'final_failed', 'completed', 'dismiss_pending', 'dismissed', 'voluntary_resigned'].includes(row.status || '')) {
     return true;
   }
   return Boolean(row.stages?.some(item => item.status && item.status !== 'pending'));
@@ -385,7 +386,7 @@ function canAssessPath(row: RowData) {
   const currentStage = getCurrentStageForRow(row);
   if (!currentStage) return false;
   if (currentStage.latestPaperId) return true;
-  return ['in_progress', 'failed', 'pending_review'].includes(currentStage.status || '');
+  return Boolean(currentStage.assessRequestedFlag) && ['in_progress', 'failed'].includes(currentStage.status || '');
 }
 
 function canEditPath(row: RowData) {
@@ -486,6 +487,15 @@ function getStageVisual(stage: AssessmentInternPathStageVo, row?: RowData) {
       ringColor: 'rgb(82 196 26 / 18%)',
       borderColor: 'rgb(82 196 26 / 34%)',
       lineColor: 'rgb(82 196 26 / 56%)'
+    };
+  }
+
+  if (stage.assessRequestedFlag) {
+    return {
+      dotColor: vars.warningColor,
+      ringColor: 'rgb(250 173 20 / 18%)',
+      borderColor: 'rgb(250 173 20 / 34%)',
+      lineColor: 'rgb(250 173 20 / 44%)'
     };
   }
 
@@ -639,6 +649,7 @@ function getProgressLineStyle(visual: ProgressVisual) {
 
 function resolveStageResultText(stage: AssessmentInternPathStageVo) {
   if (stage.latestPaperStatus === 'pending_review') return TEXT.pendingReview;
+  if (stage.assessRequestedFlag) return TEXT.assessRequested;
   if (stage.latestPaperPassFlag === true) return TEXT.passed;
   if (stage.latestPaperPassFlag === false) return TEXT.failed;
   if (stage.status === 'in_progress') return TEXT.inProgress;

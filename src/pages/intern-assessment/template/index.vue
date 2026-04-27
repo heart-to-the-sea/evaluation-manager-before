@@ -5,6 +5,7 @@ import { NButton, NDataTable, NGrid, NGi, NIcon, NInput, NPopconfirm, NPopover, 
 import type { DataTableColumns } from 'naive-ui';
 import DictSelect from '@/components/common/DictSelect.vue';
 import DictTag from '@/components/common/DictTag.vue';
+import MarkdownPreview from '@/components/common/MarkdownPreview.vue';
 import SearchTablePageLayout from '@/components/pages/SearchTablePageLayout.vue';
 import TemplateDialog from '@/components/features/intern-assessment/TemplateDialog.vue';
 import { useTableSorter } from '@/composables/use-table-sorter';
@@ -119,7 +120,12 @@ const columns = computed<DataTableColumns<RowData>>(() =>
     align: 'center',
     render: row => <DictTag dictCode="assessment_enable_status" value={row.status} />
   },
-  { title: TEXT.description, key: 'description', minWidth: 240, render: row => row.description || '-' },
+  {
+    title: TEXT.description,
+    key: 'description',
+    minWidth: 260,
+    render: row => <MarkdownPreview class="template-description-preview" content={row.description} compact />
+  },
   { title: TEXT.updatedAt, key: 'updatedAt', width: 180 },
   {
     title: TEXT.actions,
@@ -184,7 +190,7 @@ function renderStageOverview(stages: AssessmentPathTemplateStageVo[]) {
   return (
     <div class="template-stage-overview">
       {stages.map(stage => (
-        <NPopover trigger="hover" placement="top-start" width={420}>
+        <NPopover key={stage.id || stage.stageId || stage.sort} trigger="hover" placement="top-start" width={420}>
           {{
             trigger: () => (
               <div class="template-stage-tag">
@@ -202,13 +208,15 @@ function renderStageOverview(stages: AssessmentPathTemplateStageVo[]) {
                 </div>
                 <div class="stage-popover__row">
                   <span class="stage-popover__label">{TEXT.description}：</span>
-                  <span>{stage.stageDescription || TEXT.noDescription}</span>
+                  <MarkdownPreview class="stage-popover__markdown" content={stage.stageDescription} emptyText={TEXT.noDescription} compact />
                 </div>
                 <div class="stage-popover__row">
                   <span class="stage-popover__label">{TEXT.passScore}：</span>
                   <span>{stage.passScore ?? '-'}</span>
-                  <span class="stage-popover__label ml-16px">{TEXT.passRemark}：</span>
-                  <span>{stage.passRemark || '-'}</span>
+                </div>
+                <div class="stage-popover__row">
+                  <span class="stage-popover__label">{TEXT.passRemark}：</span>
+                  <MarkdownPreview class="stage-popover__markdown" content={stage.passRemark} emptyText="-" compact />
                 </div>
                 <div class="stage-popover__row">
                   <span class="stage-popover__label">{TEXT.materials}：</span>
@@ -421,6 +429,7 @@ async function handleDialogClose(submitted = false) {
 .stage-popover__row {
   display: flex;
   align-items: flex-start;
+  gap: 8px;
   margin-bottom: 6px;
 
   &:last-child {
@@ -431,5 +440,11 @@ async function handleDialogClose(submitted = false) {
 .stage-popover__label {
   flex-shrink: 0;
   color: var(--n-text-color-2);
+}
+
+.stage-popover__markdown,
+:deep(.template-description-preview) {
+  flex: 1;
+  min-width: 0;
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { NTag } from 'naive-ui';
+import { computed, ref } from 'vue';
+import { useDict } from '@/composables/use-dict';
 import type { AssessmentPathDailyCalendarVo, AssessmentPathDailyCalendarDayVo } from '@/types/app';
 
 interface Props {
@@ -16,10 +17,83 @@ const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '�
 const currentDate = new Date();
 const currentYear = ref(currentDate.getFullYear());
 const currentMonth = ref(currentDate.getMonth());
+const dailyReportStatusDictCode = 'assessment_daily_report_status';
+const { getCustomColor: getDailyReportStatusColor, getLabel: getDailyReportStatusLabel } = useDict(() => dailyReportStatusDictCode);
 
 const todayText = formatDateText(currentDate);
 
 const monthLabel = computed(() => `${currentYear.value}年${currentMonth.value + 1}月`);
+
+type CalendarCell = {
+  key: string;
+  dateText: string;
+  day: number;
+  raw: AssessmentPathDailyCalendarDayVo | null;
+  inCurrentMonth: boolean;
+  inTraining: boolean;
+  muted: boolean;
+  clickable: boolean;
+};
+
+type WorkbenchReportStatus = 'submitted' | 'pending' | 'holiday' | 'none';
+type DailyStageColor = {
+  background: string;
+  border: string;
+  text: string;
+  subText: string;
+};
+
+const dailyStagePalette: DailyStageColor[] = [
+  {
+    background: 'rgb(var(--em-primary-color-rgb) / 0.14)',
+    border: 'rgb(var(--em-primary-color-rgb) / 0.28)',
+    text: 'var(--em-primary-color)',
+    subText: 'rgb(var(--em-primary-color-rgb) / 0.78)'
+  },
+  {
+    background: 'rgb(var(--em-primary-color-rgb) / 0.11)',
+    border: 'rgb(var(--em-primary-color-rgb) / 0.22)',
+    text: 'rgb(var(--em-primary-color-rgb) / 0.92)',
+    subText: 'rgb(var(--em-primary-color-rgb) / 0.74)'
+  },
+  {
+    background: 'rgb(var(--em-primary-color-rgb) / 0.08)',
+    border: 'rgb(var(--em-primary-color-rgb) / 0.18)',
+    text: 'rgb(var(--em-primary-color-rgb) / 0.88)',
+    subText: 'rgb(var(--em-primary-color-rgb) / 0.7)'
+  },
+  {
+    background: 'rgb(var(--em-primary-color-rgb) / 0.06)',
+    border: 'rgb(var(--em-primary-color-rgb) / 0.16)',
+    text: 'rgb(var(--em-primary-color-rgb) / 0.82)',
+    subText: 'rgb(var(--em-primary-color-rgb) / 0.68)'
+  }
+];
+
+const dailyStageColorMap = computed(() => {
+  const map = new Map<string, DailyStageColor>();
+  Array.from(
+    (props.calendar.days || []).reduce((result, item) => {
+      const key = getDailyStageKey(item);
+      if (!key || result.has(key)) return result;
+      result.set(key, item.stageColor || '');
+      return result;
+    }, new Map<string, string>())
+  ).forEach(([stageKey, stageColor], index) => {
+    const parsed = parseColor(stageColor);
+    if (parsed) {
+      map.set(stageKey, {
+        background: toRgba(parsed, 0.14),
+        border: toRgba(parsed, 0.28),
+        text: getColorText(parsed),
+        subText: getSubColorText(parsed)
+      });
+      return;
+    }
+    map.set(stageKey, dailyStagePalette[index % dailyStagePalette.length]);
+  });
+  return map;
+});
 
 const calendarDays = computed(() => {
   const year = currentYear.value;
@@ -28,11 +102,22 @@ const calendarDays = computed(() => {
   const lastDay = new Date(year, month + 1, 0);
   const startOffset = (firstDay.getDay() + 6) % 7;
   const totalDays = lastDay.getDate();
+  const startText = formatDateText(props.calendar.startDate);
+  const endText = formatDateText(props.calendar.endDate);
 
-  const days: Array<{ dateText: string; day: number; raw: AssessmentPathDailyCalendarDayVo | null }> = [];
+  const days: CalendarCell[] = [];
 
   for (let i = 0; i < startOffset; i++) {
-    days.push({ dateText: '', day: 0, raw: null });
+    days.push({
+      key: `empty-prefix-${i}`,
+      dateText: '',
+      day: 0,
+      raw: null,
+      inCurrentMonth: false,
+      inTraining: false,
+      muted: true,
+      clickable: false
+    });
   }
 
   const dayMap = new Map<string, AssessmentPathDailyCalendarDayVo>();
@@ -44,13 +129,36 @@ const calendarDays = computed(() => {
   for (let d = 1; d <= totalDays; d++) {
     const date = new Date(year, month, d);
     const dateText = formatDateText(date);
-    days.push({ dateText, day: d, raw: dayMap.get(dateText) || null });
+    const raw = dayMap.get(dateText) || null;
+    const inTraining = Boolean(startText && endText && dateText >= startText && dateText <= endText);
+    const hasStageSchedule = hasCalendarStage(raw);
+    const muted = !inTraining || Boolean(raw?.holidayFlag) || !hasStageSchedule;
+    const clickable = Boolean(raw && (raw.reports?.length || raw.pathStageId || raw.stageId || raw.holidayFlag));
+    days.push({
+      key: dateText,
+      dateText,
+      day: d,
+      raw,
+      inCurrentMonth: true,
+      inTraining,
+      muted,
+      clickable
+    });
   }
 
   const remaining = 7 - (days.length % 7);
   if (remaining < 7) {
     for (let i = 0; i < remaining; i++) {
-      days.push({ dateText: '', day: 0, raw: null });
+      days.push({
+        key: `empty-suffix-${i}`,
+        dateText: '',
+        day: 0,
+        raw: null,
+        inCurrentMonth: false,
+        inTraining: false,
+        muted: true,
+        clickable: false
+      });
     }
   }
 
@@ -58,9 +166,10 @@ const calendarDays = computed(() => {
 });
 
 const monthSummary = computed(() => {
-  const days = props.calendar.days || [];
-  const submitted = days.filter(d => d.submittedFlag).length;
-  const pending = days.filter(d => d.expectedReportFlag && !d.submittedFlag).length;
+  const prefix = `${currentYear.value}-${`${currentMonth.value + 1}`.padStart(2, '0')}-`;
+  const days = (props.calendar.days || []).filter(item => formatDateText(item.date).startsWith(prefix));
+  const submitted = days.filter(d => resolveReportStatus(d) === 'submitted').length;
+  const pending = days.filter(d => resolveReportStatus(d) === 'pending').length;
   return { submitted, pending };
 });
 
@@ -90,6 +199,15 @@ function goToToday() {
 function handleDayClick(day: AssessmentPathDailyCalendarDayVo | null) {
   if (!day || !day.date) return;
   emit('dayClick', day);
+}
+
+function getDailyStageKey(day?: Pick<AssessmentPathDailyCalendarDayVo, 'pathStageId' | 'stageId'> | null) {
+  return day?.pathStageId || day?.stageId || '';
+}
+
+function hasCalendarStage(day?: AssessmentPathDailyCalendarDayVo | null) {
+  if (!day) return false;
+  return Boolean(day.pathStageId || day.stageId || day.stageName || day.stageColor || day.stageStatus || day.assessDate);
 }
 
 // 颜色解析函数 - 参考 PathDailyCalendar
@@ -150,7 +268,8 @@ function getDayBgStyle(day: AssessmentPathDailyCalendarDayVo | null) {
     };
   }
 
-  if (day.holidayFlag) {
+  const hasStageSchedule = hasCalendarStage(day);
+  if (day.holidayFlag || !hasStageSchedule) {
     return {
       '--daily-stage-background': 'rgb(var(--layout-bg-color))',
       '--daily-stage-border': 'rgb(var(--border-color))',
@@ -159,13 +278,14 @@ function getDayBgStyle(day: AssessmentPathDailyCalendarDayVo | null) {
     };
   }
 
-  const parsed = parseColor(day.stageColor);
-  if (parsed) {
+  const stageColor = dailyStageColorMap.value.get(getDailyStageKey(day));
+  if (stageColor) {
+    const planned = day.stageStartedFlag === false;
     return {
-      '--daily-stage-background': toRgba(parsed, 0.14),
-      '--daily-stage-border': toRgba(parsed, 0.28),
-      '--daily-stage-text': getColorText(parsed),
-      '--daily-stage-sub-text': getSubColorText(parsed)
+      '--daily-stage-background': planned ? stageColor.background.replace(/0\.14|0\.11|0\.08|0\.06/g, '0.08') : stageColor.background,
+      '--daily-stage-border': planned ? stageColor.border.replace(/0\.28|0\.22|0\.18|0\.16/g, '0.18') : stageColor.border,
+      '--daily-stage-text': stageColor.text,
+      '--daily-stage-sub-text': stageColor.subText
     };
   }
 
@@ -178,11 +298,51 @@ function getDayBgStyle(day: AssessmentPathDailyCalendarDayVo | null) {
   };
 }
 
-function getDayStatusTagType(status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (status === 'submitted') return 'success';
-  if (status === 'pending') return 'error';
-  if (status === 'upcoming') return 'warning';
-  return 'default';
+function resolveReportStatus(day?: AssessmentPathDailyCalendarDayVo | null): WorkbenchReportStatus {
+  if (!day) return 'none';
+  if (day.holidayFlag) return 'holiday';
+
+  const hasStageSchedule = hasCalendarStage(day);
+  if (!hasStageSchedule || day.stageStartedFlag === false) return 'none';
+
+  if (day.submittedFlag || day.reports?.length || day.reportStatus === 'submitted') return 'submitted';
+  if (day.expectedReportFlag || day.reportStatus === 'pending') return 'pending';
+
+  return 'none';
+}
+
+function getVisibleReportStatus(day?: AssessmentPathDailyCalendarDayVo | null) {
+  const status = resolveReportStatus(day);
+  if (status === 'submitted' || status === 'pending') return status;
+  return '';
+}
+
+function getStatusDotStyle(day?: AssessmentPathDailyCalendarDayVo | null) {
+  const status = getVisibleReportStatus(day);
+  if (!status) {
+    return {
+      background: 'transparent',
+      boxShadow: 'none'
+    };
+  }
+
+  const color = getDailyReportStatusColor(status) || (status === 'submitted' ? '#18a058' : '#d03050');
+  return {
+    background: color,
+    boxShadow: `0 0 0 2px ${toAlphaColor(color, 0.18)}`
+  };
+}
+
+function getStatusDotTitle(day?: AssessmentPathDailyCalendarDayVo | null) {
+  const status = getVisibleReportStatus(day);
+  if (!status) return '';
+  return getDailyReportStatusLabel(status) || (status === 'submitted' ? '已提交' : '未提交');
+}
+
+function toAlphaColor(color: string, alpha: number) {
+  const parsed = parseColor(color);
+  if (!parsed) return `rgb(var(--em-primary-color-rgb) / ${alpha})`;
+  return `rgba(${parsed.red}, ${parsed.green}, ${parsed.blue}, ${alpha})`;
 }
 
 function formatDateText(value?: string | Date | null) {
@@ -214,13 +374,16 @@ function formatDateText(value?: string | Date | null) {
     <div class="calendar-grid">
       <div
         v-for="(cell, index) in calendarDays"
-        :key="index"
+        :key="cell.key || index"
         class="calendar-cell"
         :class="{
-          'calendar-cell--empty': !cell.dateText,
+          'calendar-cell--empty': !cell.inCurrentMonth,
           'calendar-cell--today': cell.dateText === todayText,
           'calendar-cell--holiday': cell.raw?.holidayFlag,
-          'calendar-cell--clickable': cell.raw && cell.dateText
+          'calendar-cell--clickable': cell.clickable,
+          'calendar-cell--muted': cell.muted,
+          'calendar-cell--planned': cell.raw?.stageStartedFlag === false,
+          'calendar-cell--overtime': cell.raw?.overtimeStageFlag
         }"
         :style="getDayBgStyle(cell.raw)"
         @click="handleDayClick(cell.raw)"
@@ -230,10 +393,12 @@ function formatDateText(value?: string | Date | null) {
             <span class="calendar-cell__day">{{ cell.day }}</span>
           </div>
           <div class="calendar-cell__body">
-            <span class="cell-dot" :class="{
-              'cell-dot--success': cell.raw?.submittedFlag,
-              'cell-dot--warning': cell.raw?.expectedReportFlag && !cell.raw?.submittedFlag
-            }"></span>
+            <span
+              v-if="getVisibleReportStatus(cell.raw)"
+              class="cell-dot"
+              :style="getStatusDotStyle(cell.raw)"
+              :title="getStatusDotTitle(cell.raw)"
+            ></span>
           </div>
         </template>
       </div>
@@ -246,7 +411,7 @@ function formatDateText(value?: string | Date | null) {
           <span class="summary-chip__value">{{ monthSummary.submitted }}</span>
         </span>
         <span class="summary-chip">
-          <span class="summary-chip__label">待提交</span>
+          <span class="summary-chip__label">未提交</span>
           <span class="summary-chip__value">{{ monthSummary.pending }}</span>
         </span>
       </div>
@@ -375,6 +540,21 @@ function formatDateText(value?: string | Date | null) {
     opacity: 0.5;
     cursor: default;
   }
+
+  &--muted {
+    background: rgb(var(--layout-bg-color));
+    color: var(--n-text-color-3);
+  }
+
+  &--planned {
+    background:
+      linear-gradient(135deg, rgb(var(--container-bg-color) / 78%), rgb(var(--layout-bg-color) / 88%)),
+      var(--daily-stage-background, rgb(var(--layout-bg-color)));
+  }
+
+  &--overtime {
+    border-color: rgb(208 48 80 / 72%);
+  }
 }
 
 .calendar-cell__head {
@@ -401,14 +581,6 @@ function formatDateText(value?: string | Date | null) {
   height: 5px;
   border-radius: 50%;
   background: transparent;
-
-  &--success {
-    background: rgb(82 196 26);
-  }
-
-  &--warning {
-    background: rgb(208 48 80);
-  }
 }
 
 .calendar-footer {

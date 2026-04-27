@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { ArrowBackOutline, ChevronDownOutline, ChevronForwardOutline } from '@vicons/ionicons5';
 import { NButton, NDatePicker, NEmpty, NIcon, NInput, NInputNumber, NModal, NPopover, NSpin, NSwitch, NTabPane, NTabs, NTag } from 'naive-ui';
 import DictTag from '@/components/common/DictTag.vue';
@@ -9,6 +9,7 @@ import PaperCreateDialog from '@/components/features/intern-assessment/PaperCrea
 import PaperInfoModal from '@/components/features/intern-assessment/PaperInfoModal.vue';
 import PathDailyCalendar from '@/components/features/intern-assessment/PathDailyCalendar.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
+import { renderMarkdown } from '@/utils/markdown';
 import {
   fetchAssessmentFinalReviewLinkCreate,
   fetchAssessmentPathEnd,
@@ -19,10 +20,16 @@ import {
   fetchAssessmentPathDailyCalendar,
   fetchAssessmentPathExitList,
   fetchAssessmentPathExitSave,
+  fetchAssessmentPathStageAchievementDelete,
+  fetchAssessmentPathStageAchievementSave,
+  fetchAssessmentPathStageAchievementSubmit,
+  fetchAssessmentStageById,
   fetchAssessmentPathStageEnd,
   fetchAssessmentPathStageStart,
   fetchAssessmentPathViolationList,
   fetchAssessmentPathViolationSave,
+  fetchFileRecordUpload,
+  fetchStorageConfigOptions,
   fetchUserById
 } from '@/service/api';
 import type {
@@ -32,6 +39,8 @@ import type {
   AssessmentInternPathVo,
   AssessmentPathDailyCalendarDayVo,
   AssessmentPathDailyCalendarVo,
+  AssessmentStageAchievementVo,
+  AssessmentStageVo,
   AssessmentPaperVo,
   AssessmentViolationRecordVo,
   UserOptionVo,
@@ -59,8 +68,11 @@ const showExitDialog = ref(false);
 const showRetainDialog = ref(false);
 const activePaperId = ref<string | null>(null);
 const activePaperReadonly = ref(true);
+const stageAchievementInputRefs = ref<Record<string, HTMLInputElement | null>>({});
 const assessStage = ref<AssessmentInternPathStageVo | null>(null);
 const actionLoadingStageId = ref('');
+const achievementUploadingStageId = ref('');
+const achievementSubmittingStageId = ref('');
 const endingStage = ref<AssessmentInternPathStageVo | null>(null);
 const editingViolationStage = ref<AssessmentInternPathStageVo | null>(null);
 const detail = ref<AssessmentInternPathVo | null>(null);
@@ -81,9 +93,12 @@ const finalReviewItems = ref<Array<{
 }>>([]);
 const violationMap = ref<Record<string, AssessmentViolationRecordVo[]>>({});
 const exitRecords = ref<AssessmentExitRecordVo[]>([]);
+const stageDetailMap = ref<Record<string, AssessmentStageVo>>({});
 const expandedStageKeys = ref<string[]>([]);
 const routeActionHandled = ref(false);
-const activeTab = ref<'overview' | 'history' | 'daily' | 'finalReview'>('overview');
+const activeTab = ref<'overview' | 'history' | 'daily'>('overview');
+const historyStandardTab = ref<'standard' | 'assessment' | 'achievement' | 'record'>('standard');
+const selectedHistoryStageKey = ref('');
 const showDailyDetailDialog = ref(false);
 const activeDailyCell = ref<AssessmentPathDailyCalendarDayVo | null>(null);
 
@@ -513,6 +528,48 @@ const stageRecords = computed(() => {
   }));
 });
 
+const selectedHistoryStage = computed(() => {
+  const records = stageRecords.value;
+  if (!records.length) return null;
+  return (
+    records.find(item => getStageKey(item) === selectedHistoryStageKey.value)
+    || records.find(item => expandedStageKeys.value.includes(getStageKey(item)))
+    || records[0]
+    || null
+  );
+});
+
+const selectedHistoryStageDetail = computed(() => {
+  const stageId = selectedHistoryStage.value?.stageId || '';
+  return stageId ? stageDetailMap.value[stageId] || null : null;
+});
+
+const selectedHistoryStageStandardHtml = computed(() => {
+  const stage = selectedHistoryStageDetail.value;
+  if (!stage) return renderMarkdown('暂无培训标准');
+  const sections: string[] = [];
+  if (stage.description) {
+    sections.push(stage.description);
+  }
+  if (stage.remark) {
+    sections.push('### 备注');
+    sections.push(stage.remark);
+  }
+  return renderMarkdown(sections.join('\n\n') || '暂无培训标准');
+});
+
+const selectedHistoryStageAssessmentHtml = computed(() =>
+  renderMarkdown(buildStageAssessmentMarkdown(selectedHistoryStageDetail.value))
+);
+const selectedHistoryStageAchievements = computed(() => getStageAchievements(selectedHistoryStage.value));
+const selectedHistoryStageRecords = computed<AssessmentPaperVo[]>(() => selectedHistoryStage.value?.records || []);
+const selectedHistoryStageActionText = computed(() =>
+  selectedHistoryStage.value ? getStageActionText(selectedHistoryStage.value) : ''
+);
+const selectedHistoryStageLatestRecord = computed(() =>
+  selectedHistoryStage.value ? getStageLatestRecord(selectedHistoryStage.value) : null
+);
+
 const dailyStageColorMap = computed(() => {
   const map = new Map<string, (typeof dailyStagePalette)[number]>();
   Array.from(
@@ -665,6 +722,10 @@ const dailyCalendarHeaderTags = computed(() => [
 function resolveFocusStage(stages: AssessmentInternPathStageVo[], currentStageId?: string | null) {
   const stageList = stages || [];
   if (!stageList.length) return null;
+  const lastResolvedStage = stageList
+    .slice()
+    .reverse()
+    .find(item => Boolean(item.status) && item.status !== 'pending');
 
   return (
     stageList.find(item => item.status === 'pending_review')
@@ -672,6 +733,7 @@ function resolveFocusStage(stages: AssessmentInternPathStageVo[], currentStageId
     || stageList.find(item => item.status === 'in_progress')
     || stageList.find(item => item.status === 'failed')
     || stageList.find(item => item.stageId === currentStageId || item.id === currentStageId)
+    || lastResolvedStage
     || stageList.find(item => item.status === 'pending')
     || stageList[0]
   );
@@ -793,12 +855,6 @@ watch(
   }
 );
 
-watch(hasFinalReviewAside, value => {
-  if (value && activeTab.value === 'finalReview') {
-    activeTab.value = 'overview';
-  }
-});
-
 onMounted(() => {
   loadDetail();
 });
@@ -824,6 +880,8 @@ async function loadDetail() {
       dailyCalendar.value = null;
       violationMap.value = {};
       exitRecords.value = [];
+      stageDetailMap.value = {};
+      selectedHistoryStageKey.value = '';
       return;
     }
 
@@ -833,7 +891,8 @@ async function loadDetail() {
       loadPaperRecords(data.id || ''),
       loadDailyCalendar(data.id || ''),
       loadViolationRecords(data.id || ''),
-      loadExitRecords(data.id || '', data.userId || '')
+      loadExitRecords(data.id || '', data.userId || ''),
+      loadStageDetails(data.stages || [])
     ];
     if (data.userId) {
       tasks.push(loadUserDetail(data.userId));
@@ -905,6 +964,22 @@ async function loadExitRecords(currentPathId: string, userId: string) {
   }
   const { data, error } = await fetchAssessmentPathExitList({ pathId: currentPathId || undefined, userId: userId || undefined });
   exitRecords.value = error ? [] : data || [];
+}
+
+async function loadStageDetails(stages: AssessmentInternPathStageVo[]) {
+  const stageIds = Array.from(new Set((stages || []).map(item => item.stageId).filter(Boolean))) as string[];
+  if (!stageIds.length) {
+    stageDetailMap.value = {};
+    return;
+  }
+  const responses = await Promise.all(stageIds.map(stageId => fetchAssessmentStageById(stageId)));
+  const nextMap: Record<string, AssessmentStageVo> = {};
+  responses.forEach((response, index) => {
+    if (!response.error && response.data && stageIds[index]) {
+      nextMap[stageIds[index]] = response.data;
+    }
+  });
+  stageDetailMap.value = nextMap;
 }
 
 function getPaperPassType(record?: AssessmentPaperVo): 'default' | 'success' | 'error' | 'warning' {
@@ -1030,6 +1105,29 @@ function resolveActualStudyDaysText(stage?: AssessmentInternPathStageVo | null) 
   return `${stage.studyDurationDays}天`;
 }
 
+function buildStageAssessmentMarkdown(stage?: AssessmentStageVo | null) {
+  if (!stage) return '暂无考核说明';
+  const lines: string[] = [];
+  if (stage.passScore != null && stage.passScore !== '') {
+    lines.push(`- 通过分数：${stage.passScore}`);
+  }
+  if (stage.passRemark) {
+    lines.push('', '### 通过说明', '', stage.passRemark);
+  }
+  const rules = (stage.rules || []).slice().sort((left, right) => (left.sort || 0) - (right.sort || 0));
+  if (rules.length) {
+    lines.push('', '### 抽题规则');
+    rules.forEach((rule, index) => {
+      lines.push(`${index + 1}. **${rule.questionType || '考核'}**`);
+      if (rule.difficulty) lines.push(`   - 难度：${rule.difficulty}`);
+      if (rule.knowledgePoints) lines.push(`   - 知识范围：${rule.knowledgePoints}`);
+      if (rule.questionCount != null) lines.push(`   - 题量：${rule.questionCount}`);
+      if (rule.score != null && rule.score !== '') lines.push(`   - 分值：${rule.score}`);
+    });
+  }
+  return lines.join('\n') || '暂无考核说明';
+}
+
 function resolveFlagText(value?: boolean | null) {
   if (value === true) return '是';
   if (value === false) return '否';
@@ -1040,16 +1138,19 @@ function getStageKey(stage?: Pick<AssessmentInternPathStageVo, 'id' | 'stageId'>
   return stage?.id || stage?.stageId || '';
 }
 
+function setExpandedStageKey(key?: string | null) {
+  expandedStageKeys.value = key ? [key] : [];
+}
+
 function syncExpandedStageKeys(stages: AssessmentInternPathStageVo[], currentStageId?: string | null) {
   const validKeys = new Set((stages || []).map(item => getStageKey(item)).filter(Boolean));
-  const nextKeys = expandedStageKeys.value.filter(key => validKeys.has(key));
-  if (!nextKeys.length) {
-    const focusStage = resolveFocusStage(stages || [], currentStageId);
-    const fallbackKey = getStageKey(focusStage) || getStageKey(stages?.[0]);
-    expandedStageKeys.value = fallbackKey ? [fallbackKey] : [];
-    return;
-  }
-  expandedStageKeys.value = nextKeys;
+  const currentSelectedKey = validKeys.has(selectedHistoryStageKey.value) ? selectedHistoryStageKey.value : '';
+  const nextKey = currentSelectedKey
+    || expandedStageKeys.value.find(key => validKeys.has(key))
+    || getStageKey(resolveFocusStage(stages || [], currentStageId))
+    || getStageKey(stages?.[0]);
+  setExpandedStageKey(nextKey);
+  selectedHistoryStageKey.value = nextKey || '';
 }
 
 function isStageExpanded(stage: AssessmentInternPathStageVo) {
@@ -1059,9 +1160,15 @@ function isStageExpanded(stage: AssessmentInternPathStageVo) {
 function toggleStageExpanded(stage: AssessmentInternPathStageVo) {
   const key = getStageKey(stage);
   if (!key) return;
-  expandedStageKeys.value = isStageExpanded(stage)
-    ? expandedStageKeys.value.filter(item => item !== key)
-    : [...expandedStageKeys.value, key];
+  selectedHistoryStageKey.value = key;
+  setExpandedStageKey(isStageExpanded(stage) ? '' : key);
+}
+
+function selectHistoryStage(stage: AssessmentInternPathStageVo) {
+  const key = getStageKey(stage);
+  if (!key) return;
+  selectedHistoryStageKey.value = key;
+  setExpandedStageKey(key);
 }
 
 function formatDateDay(value?: string | null) {
@@ -1165,8 +1272,245 @@ function getEndStageButtonText(stage: AssessmentInternPathStageVo) {
   return '结束阶段';
 }
 
+function getSortedStages() {
+  return [...(detail.value?.stages || [])].sort((a, b) => {
+    const sortA = a.sort ?? Number.MAX_SAFE_INTEGER;
+    const sortB = b.sort ?? Number.MAX_SAFE_INTEGER;
+    if (sortA !== sortB) return sortA - sortB;
+    return String(a.stageName || '').localeCompare(String(b.stageName || ''), 'zh-CN');
+  });
+}
+
+function findPreviousStage(targetStage: AssessmentInternPathStageVo) {
+  const targetSort = targetStage.sort ?? Number.MAX_SAFE_INTEGER;
+  return getSortedStages()
+    .filter(item => item.id !== targetStage.id)
+    .filter(item => (item.sort ?? Number.MAX_SAFE_INTEGER) < targetSort)
+    .sort((a, b) => (b.sort ?? Number.MIN_SAFE_INTEGER) - (a.sort ?? Number.MIN_SAFE_INTEGER))[0] || null;
+}
+
+function findMissingRequiredAchievementStageBeforeStart(targetStage: AssessmentInternPathStageVo) {
+  const previousStage = findPreviousStage(targetStage);
+  if (!previousStage) return null;
+  if (!previousStage.achievementRequired) return null;
+  if (!(previousStage.achievementUploadedFlag || Number(previousStage.achievementCount || 0) > 0)) return previousStage;
+  if (!previousStage.achievementSubmittedFlag) return previousStage;
+  return null;
+}
+
+function getStageAchievements(stage?: AssessmentInternPathStageVo | null) {
+  return stage?.achievements || [];
+}
+
+function getStageAchievementStatusText(stage?: AssessmentInternPathStageVo | null) {
+  if (!stage?.achievementRequired) return '非必传';
+  if (stage.achievementSubmittedFlag) return '已提交';
+  if (stage.achievementUploadedFlag || Number(stage.achievementCount || 0) > 0) return '待提交';
+  return '待上传';
+}
+
+function getStageAchievementStatusType(stage?: AssessmentInternPathStageVo | null): 'default' | 'success' | 'warning' {
+  if (!stage?.achievementRequired) return 'default';
+  if (stage.achievementSubmittedFlag) return 'success';
+  return 'warning';
+}
+
+function canSubmitStageAchievement(stage?: AssessmentInternPathStageVo | null) {
+  if (!stage?.id) return false;
+  if (stage.achievementSubmittedFlag) return false;
+  return Boolean(stage.achievementUploadedFlag || Number(stage.achievementCount || 0) > 0);
+}
+
+function setStageAchievementInputRef(stageKey: string, el: HTMLInputElement | null) {
+  stageAchievementInputRefs.value[stageKey] = el;
+}
+
+function resetStageAchievementInput(stageKey: string) {
+  const input = stageAchievementInputRefs.value[stageKey];
+  if (input) {
+    input.value = '';
+  }
+}
+
+function openStageAchievementUpload(stage: AssessmentInternPathStageVo) {
+  const stageKey = getStageKey(stage);
+  if (!stageKey || !canManageTraining.value) return;
+  if (stage.achievementSubmittedFlag) {
+    window.$message?.warning('当前阶段成果材料已完成提交，不能继续上传');
+    return;
+  }
+  stageAchievementInputRefs.value[stageKey]?.click();
+}
+
+async function resolveAchievementStorageConfigId() {
+  const { data, error } = await fetchStorageConfigOptions('attachment');
+  if (!error && data?.length) {
+    const preferred = data.find(item => item.defaultFlag) || data[0];
+    if (preferred?.id) return preferred.id;
+  }
+
+  const fallback = await fetchStorageConfigOptions();
+  if (!fallback.error && fallback.data?.length) {
+    const preferred = fallback.data.find(item => item.defaultFlag) || fallback.data[0];
+    return preferred?.id || '';
+  }
+
+  return '';
+}
+
+async function handleStageAchievementFileChange(stage: AssessmentInternPathStageVo, event: Event) {
+  const stageKey = getStageKey(stage);
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0];
+  if (!file || !stage.id) {
+    if (stageKey) {
+      resetStageAchievementInput(stageKey);
+    }
+    return;
+  }
+  if (stage.achievementSubmittedFlag) {
+    window.$message?.warning('当前阶段成果材料已完成提交，不能继续上传');
+    if (stageKey) {
+      resetStageAchievementInput(stageKey);
+    }
+    return;
+  }
+
+  achievementUploadingStageId.value = stage.id;
+  try {
+    const storageConfigId = await resolveAchievementStorageConfigId();
+    if (!storageConfigId) {
+      window.$message?.error('未找到可用的文件存储配置');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('storageGroup', 'attachment');
+    formData.append('storageConfigId', storageConfigId);
+    formData.append('remark', '培训阶段成果材料上传');
+
+    const { data, error, msg } = await fetchFileRecordUpload(formData);
+    if (error || !data?.id) return;
+
+    const { error: saveError } = await fetchAssessmentPathStageAchievementSave({
+      pathId: stage.pathId,
+      pathStageId: stage.id,
+      userId: stage.userId,
+      stageId: stage.stageId,
+      stageName: stage.stageName,
+      fileId: data.id,
+      fileName: data.fileName || file.name,
+      fileUrl: data.fileUrl
+    });
+    if (saveError) return;
+
+    window.$message?.success(msg || '成果材料上传成功');
+    const expandedKey = stageKey || selectedHistoryStageKey.value;
+    await loadDetail();
+    activeTab.value = 'history';
+    setExpandedStageKey(expandedKey);
+  } finally {
+    achievementUploadingStageId.value = '';
+    if (stageKey) {
+      resetStageAchievementInput(stageKey);
+    }
+  }
+}
+
+function handleSubmitStageAchievement(stage: AssessmentInternPathStageVo) {
+  if (!stage.id) return;
+  if (!canSubmitStageAchievement(stage)) {
+    window.$message?.warning('请先上传成果材料后再完成提交');
+    return;
+  }
+  window.$dialog?.warning({
+    title: '完成提交',
+    content: `确认提交阶段【${stage.stageName || '-'}】的成果材料吗？提交后将不能继续上传或删除。`,
+    positiveText: '确认提交',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      achievementSubmittingStageId.value = stage.id || '';
+      try {
+        const { error } = await fetchAssessmentPathStageAchievementSubmit({
+          pathStageId: stage.id
+        });
+        if (error) return false;
+        window.$message?.success('成果材料已提交');
+        const expandedKey = getStageKey(stage) || selectedHistoryStageKey.value;
+        await loadDetail();
+        activeTab.value = 'history';
+        setExpandedStageKey(expandedKey);
+        return true;
+      } finally {
+        achievementSubmittingStageId.value = '';
+      }
+    }
+  });
+}
+
+function openStageAchievementFile(item: AssessmentStageAchievementVo) {
+  if (!item.fileUrl) {
+    window.$message?.warning('当前材料没有可访问地址');
+    return;
+  }
+  window.open(item.fileUrl, '_blank', 'noopener,noreferrer');
+}
+
+function handleDeleteStageAchievement(item: AssessmentStageAchievementVo) {
+  if (!item.id) return;
+  const stage = stageRecords.value.find(record => record.id === item.pathStageId);
+  if (stage?.achievementSubmittedFlag) {
+    window.$message?.warning('当前阶段成果材料已完成提交，不能删除');
+    return;
+  }
+  window.$dialog?.warning({
+    title: '删除成果材料',
+    content: `确认删除成果材料【${item.fileName || '未命名文件'}】吗？`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      const { error } = await fetchAssessmentPathStageAchievementDelete(item.id!);
+      if (error) return false;
+      window.$message?.success('成果材料已删除');
+      const expandedKey = getStageKey(stage) || selectedHistoryStageKey.value;
+      await loadDetail();
+      activeTab.value = 'history';
+      setExpandedStageKey(expandedKey);
+      return true;
+    }
+  });
+}
+
 async function handleStartStage(stage: AssessmentInternPathStageVo) {
   if (!stage.id) return;
+  const missingRequiredAchievementStage = findMissingRequiredAchievementStageBeforeStart(stage);
+  if (missingRequiredAchievementStage) {
+    const previousStageKey = getStageKey(missingRequiredAchievementStage);
+    const uploadedFlag =
+      Boolean(missingRequiredAchievementStage.achievementUploadedFlag)
+      || Number(missingRequiredAchievementStage.achievementCount || 0) > 0;
+    activeTab.value = 'history';
+    if (previousStageKey) {
+      selectedHistoryStageKey.value = previousStageKey;
+      setExpandedStageKey(previousStageKey);
+    }
+    window.$dialog?.warning({
+      title: uploadedFlag ? '必传成果材料未提交' : '必传成果材料未上传',
+      content: uploadedFlag
+        ? `阶段【${missingRequiredAchievementStage.stageName || '上一阶段'}】的必传成果材料尚未完成提交，请先提交后再开始下一阶段。`
+        : `阶段【${missingRequiredAchievementStage.stageName || '上一阶段'}】配置了必传成果材料，当前尚未上传，请先补充上传后再开始下一阶段。`,
+      positiveText: uploadedFlag ? '查看该阶段' : '去上传材料',
+      negativeText: '稍后处理',
+      onPositiveClick: async () => {
+        await nextTick();
+        if (!uploadedFlag) {
+          openStageAchievementUpload(missingRequiredAchievementStage);
+        }
+      }
+    });
+    return;
+  }
   actionLoadingStageId.value = stage.id;
   try {
     const { error } = await fetchAssessmentPathStageStart({ pathStageId: stage.id });
@@ -1221,9 +1565,9 @@ function resolveStageActionMode(
 ): StageActionMode {
   if (!detail.value?.id || !detail.value?.userId || !stage || !canManageTraining.value) return 'none';
   if (latestRecord?.id && latestRecord.status === 'pending_review') return 'review';
+  if (['in_progress', 'failed'].includes(stage.status || '') && stage.assessRequestedFlag) return 'create';
   if (['pending', 'failed'].includes(stage.status || '')) return stage.id ? 'start' : 'none';
   if (stage.status === 'pending_review') return latestRecord?.id ? 'review' : 'none';
-  if (stage.status === 'in_progress') return 'create';
   if (latestRecord?.id) return 'view';
   return 'none';
 }
@@ -1234,7 +1578,7 @@ function canGenerateStage(stage: AssessmentInternPathStageVo) {
     (stage.id && stage.id === currentStage.value?.id)
     || (stage.stageId && stage.stageId === detail.value.currentStageId)
   );
-  return isCurrentStage && stage.status === 'in_progress';
+  return isCurrentStage && ['in_progress', 'failed'].includes(stage.status || '') && Boolean(stage.assessRequestedFlag);
 }
 
 function getStageActionText(stage: AssessmentInternPathStageVo & { records?: AssessmentPaperVo[] }) {
@@ -1594,7 +1938,6 @@ function openRetainDialog() {
       <NTabs v-model:value="activeTab" type="line" animated class="detail-page-tabs">
         <NTabPane name="overview" tab="基本信息" />
         <NTabPane name="history" tab="培训履历" />
-        <NTabPane v-if="!hasFinalReviewAside" name="finalReview" tab="总体考评" />
         <NTabPane name="daily" tab="日报" />
       </NTabs>
     </template>
@@ -1675,7 +2018,8 @@ function openRetainDialog() {
     </template>
 
     <template #contentBox>
-      <NSpin :show="loading">
+      <NSpin :show="loading" class="detail-page-spin">
+        <div class="detail-page-scroll">
           <NEmpty v-if="!detail" description="暂无培训信息" />
 
           <template v-else>
@@ -1756,306 +2100,276 @@ function openRetainDialog() {
               </NTabPane>
 
               <NTabPane name="history" tab="培训履历">
-                <div class="detail-tab-pane">
-                  <div class="detail-section">
-                    <div v-if="stageRecords.length" class="stage-list">
-                      <div v-for="(stage, index) in stageRecords" :key="stage.id || stage.stageId || index" class="stage-item">
-                        <div class="stage-item__rail">
-                          <div class="stage-dot" :class="getStageDotClass(stage)"></div>
-                          <div v-if="index < stageRecords.length - 1" class="stage-line"></div>
-                        </div>
-
-                        <div class="stage-item__body">
-                          <div class="stage-item__header" @click="toggleStageExpanded(stage)">
-                            <div class="stage-item__title">
-                              <span>{{ stage.stageName || '-' }}</span>
-                              <DictTag dict-code="assessment_path_stage_status" :value="stage.status" />
-                              <DictTag dict-code="assessment_stage_timing_status" :value="stage.timingStatus" />
-                            </div>
-                            <div class="stage-item__meta">
-                              <div class="stage-item__meta-tag">
-                                <span class="stage-item__meta-label">执行情况</span>
-                                <DictTag
-                                  size="small"
-                                  dict-code="assessment_pass_result"
-                                  :value="resolveAssessmentPassResult(stage.latestPaperStatus, stage.latestPaperPassFlag)"
-                                  :fallback-label="getStageResultText(stage)"
-                                />
-                              </div>
-                              <div class="stage-item__meta-tag">
-                                <span class="stage-item__meta-label">持续情况</span>
-                                <NTag size="small" :bordered="false" :type="getStageDurationTagType(stage)">
-                                  {{ resolveStageDurationSummary(stage) }}
-                                </NTag>
-                              </div>
-                              <div class="stage-item__meta-tag">
-                                <span class="stage-item__meta-label">培训区间</span>
-                                <NTag size="small" :bordered="false" type="info">
-                                  {{ resolveStagePeriodText(stage) }}
-                                </NTag>
-                              </div>
-                              <div class="stage-item__meta-tag">
-                                <span class="stage-item__meta-label">考核日期</span>
-                                <NTag size="small" :bordered="false" type="warning">
-                                  {{ formatDateDay(stage.assessAt) }}
-                                </NTag>
-                              </div>
-                              <div class="stage-item__meta-tag">
-                                <span class="stage-item__meta-label">评级</span>
-                                <DictTag
-                                  dict-code="assessment_stage_rating"
-                                  :value="stage.rating"
-                                  :fallback-label="resolveStageRatingText(stage)"
-                                  size="small"
-                                />
-                              </div>
-                            </div>
-                            <div class="stage-item__header-actions">
-                              <NButton
-                                v-if="canStartStage(stage)"
-                                size="small"
-                                type="primary"
-                                :loading="actionLoadingStageId === stage.id"
-                                @click.stop="handleStartStage(stage)"
-                              >
-                                开始阶段
-                              </NButton>
-                              <NButton
-                                v-if="canEndStage(stage)"
-                                size="small"
-                                secondary
-                                :loading="actionLoadingStageId === stage.id"
-                                @click.stop="openEndStageDialog(stage)"
-                              >
-                                {{ getEndStageButtonText(stage) }}
-                              </NButton>
-                              <NButton quaternary size="small" class="stage-item__toggle" @click.stop="toggleStageExpanded(stage)">
-                                <template #icon>
-                                  <NIcon>
-                                    <component :is="isStageExpanded(stage) ? ChevronDownOutline : ChevronForwardOutline" />
-                                  </NIcon>
-                                </template>
-                                {{ isStageExpanded(stage) ? '收起明细' : '展开明细' }}
-                              </NButton>
-                            </div>
+                <div class="detail-tab-pane detail-tab-pane--history">
+                  <div class="history-split-layout">
+                    <div class="detail-section history-split-layout__main">
+                      <div v-if="stageRecords.length" class="stage-list">
+                        <div
+                          v-for="(stage, index) in stageRecords"
+                          :key="stage.id || stage.stageId || index"
+                          class="stage-item"
+                          :class="{ 'stage-item--selected': getStageKey(stage) === selectedHistoryStageKey }"
+                          @click="selectHistoryStage(stage)"
+                        >
+                          <div class="stage-item__rail">
+                            <div class="stage-dot" :class="getStageDotClass(stage)"></div>
+                            <div v-if="index < stageRecords.length - 1" class="stage-line"></div>
                           </div>
 
-                          <div v-show="isStageExpanded(stage)" class="stage-item__detail">
-                            <div class="stage-summary">
-                              <div class="stage-summary__item">学习时间：{{ resolveStudyDaysText(stage) }}</div>
-                              <div class="stage-summary__item">培训开始：{{ stage.startedAt || '-' }}</div>
-                              <div class="stage-summary__item">培训结束：{{ stage.endedAt || '-' }}</div>
-                              <div class="stage-summary__item">实际学习天数：{{ resolveActualStudyDaysText(stage) }}</div>
-                              <div class="stage-summary__item">考核时间：{{ stage.assessAt || '-' }}</div>
-                              <div class="stage-summary__item">最早考核：{{ stage.earliestAssessAt || '-' }}</div>
-                              <div class="stage-summary__item">最晚考核：{{ stage.latestAssessAt || '-' }}</div>
-                              <div class="stage-summary__item">培训超时：{{ resolveFlagText(stage.overtimeFlag) }}</div>
-                              <div class="stage-summary__item">考核延迟：{{ resolveFlagText(stage.delayedAssessFlag) }}</div>
-                              <div class="stage-summary__item">
-                                阶段评级：
-                                <DictTag
-                                  dict-code="assessment_stage_rating"
-                                  :value="stage.rating"
-                                  :fallback-label="resolveStageRatingText(stage)"
-                                  size="small"
-                                />
+                          <div class="stage-item__body">
+                            <div class="stage-item__header" @click="toggleStageExpanded(stage)">
+                              <div class="stage-item__title">
+                                <span>{{ stage.stageName || '-' }}</span>
+                                <DictTag dict-code="assessment_path_stage_status" :value="stage.status" />
+                                <DictTag dict-code="assessment_stage_timing_status" :value="stage.timingStatus" />
                               </div>
-                              <div class="stage-summary__item">自动开始下一阶段：{{ stage.autoStartNext ? '是' : '否' }}</div>
-                              <div class="stage-summary__item">时间说明：{{ stage.timingDescription || '-' }}</div>
-                              <div class="stage-summary__item">
-                                答对题数：{{ stage.latestPaperQuestionTotal == null ? '-' : `${stage.latestPaperCorrectTotal ?? 0} / ${stage.latestPaperQuestionTotal ?? 0}` }}
-                              </div>
-                              <div class="stage-summary__item">最近得分：{{ stage.latestPaperScore ?? '-' }}</div>
-                              <div class="stage-summary__item">结果说明：{{ stage.latestPaperFinalComment || '-' }}</div>
-                            </div>
-
-                            <div class="record-list">
-                              <div class="record-list__title">阶段考核记录</div>
-
-                              <div v-if="stage.records.length" class="record-items">
-                                <div v-for="record in stage.records" :key="record.id" class="record-item">
-                                  <div class="record-item__main">
-                                    <div class="record-item__title">
-                                      <span>{{ record.stageName || stage.stageName || '-' }}</span>
-                                      <DictTag dict-code="assessment_paper_status" :value="record.status" />
-                                      <DictTag
-                                        dict-code="assessment_pass_result"
-                                        :value="resolveAssessmentPassResult(record.status, record.passFlag)"
-                                        :fallback-label="getRecordResultText(record)"
-                                      />
-                                    </div>
-
-                                    <div class="record-item__meta">
-                                      <span>考核时间：{{ record.createdAt || '-' }}</span>
-                                      <span>批阅时间：{{ record.reviewedAt || '-' }}</span>
-                                      <span>得分：{{ record.score ?? '-' }}</span>
-                                      <span>答对：{{ record.questionTotal == null ? '-' : `${record.correctTotal ?? 0} / ${record.questionTotal ?? 0}` }}</span>
-                                    </div>
-
-                                    <div class="record-item__comment">评语：{{ record.finalComment || '-' }}</div>
-                                  </div>
-
-                                  <div class="record-item__actions">
-                                    <NButton
-                                      size="small"
-                                      quaternary
-                                      :type="record.status === 'pending_review' ? 'warning' : 'primary'"
-                                      @click="handleViewPaper(record)"
-                                    >
-                                      {{ record.status === 'pending_review' ? '阅卷' : '查看详情' }}
-                                    </NButton>
-                                  </div>
+                              <div class="stage-item__meta">
+                                <div class="stage-item__meta-tag">
+                                  <span class="stage-item__meta-label">执行情况</span>
+                                  <DictTag
+                                    size="small"
+                                    dict-code="assessment_pass_result"
+                                    :value="resolveAssessmentPassResult(stage.latestPaperStatus, stage.latestPaperPassFlag)"
+                                    :fallback-label="getStageResultText(stage)"
+                                  />
+                                </div>
+                                <div class="stage-item__meta-tag">
+                                  <span class="stage-item__meta-label">持续情况</span>
+                                  <NTag size="small" :bordered="false" :type="getStageDurationTagType(stage)">
+                                    {{ resolveStageDurationSummary(stage) }}
+                                  </NTag>
+                                </div>
+                                <div class="stage-item__meta-tag">
+                                  <span class="stage-item__meta-label">培训区间</span>
+                                  <NTag size="small" :bordered="false" type="info">
+                                    {{ resolveStagePeriodText(stage) }}
+                                  </NTag>
+                                </div>
+                                <div class="stage-item__meta-tag">
+                                  <span class="stage-item__meta-label">考核日期</span>
+                                  <NTag size="small" :bordered="false" type="warning">
+                                    {{ formatDateDay(stage.assessAt) }}
+                                  </NTag>
+                                </div>
+                                <div class="stage-item__meta-tag">
+                                  <span class="stage-item__meta-label">评级</span>
+                                  <DictTag
+                                    dict-code="assessment_stage_rating"
+                                    :value="stage.rating"
+                                    :fallback-label="resolveStageRatingText(stage)"
+                                    size="small"
+                                  />
                                 </div>
                               </div>
-
-                              <div v-else class="record-list__empty">
-                                <NEmpty description="当前阶段暂无阶段考核记录" />
+                              <div class="stage-item__header-actions">
                                 <NButton
-                                  v-if="getStageActionText(stage)"
+                                  v-if="canStartStage(stage)"
                                   size="small"
-                                  quaternary
-                                  :type="getStageLatestRecord(stage)?.status === 'pending_review' ? 'warning' : 'primary'"
-                                  @click="handleStageAction(stage)"
+                                  type="primary"
+                                  :loading="actionLoadingStageId === stage.id"
+                                  @click.stop="handleStartStage(stage)"
                                 >
-                                  {{ getStageActionText(stage) }}
+                                  开始阶段
+                                </NButton>
+                                <NButton
+                                  v-if="canEndStage(stage)"
+                                  size="small"
+                                  secondary
+                                  :loading="actionLoadingStageId === stage.id"
+                                  @click.stop="openEndStageDialog(stage)"
+                                >
+                                  {{ getEndStageButtonText(stage) }}
+                                </NButton>
+                                <NButton quaternary size="small" class="stage-item__toggle" @click.stop="toggleStageExpanded(stage)">
+                                  <template #icon>
+                                    <NIcon>
+                                      <component :is="isStageExpanded(stage) ? ChevronDownOutline : ChevronForwardOutline" />
+                                    </NIcon>
+                                  </template>
+                                  {{ isStageExpanded(stage) ? '收起明细' : '展开明细' }}
                                 </NButton>
                               </div>
                             </div>
+
+                            <div v-show="isStageExpanded(stage)" class="stage-item__detail">
+                              <div class="stage-summary">
+                                <div class="stage-summary__item">学习时间：{{ resolveStudyDaysText(stage) }}</div>
+                                <div class="stage-summary__item">培训开始：{{ stage.startedAt || '-' }}</div>
+                                <div class="stage-summary__item">培训结束：{{ stage.endedAt || '-' }}</div>
+                                <div class="stage-summary__item">实际学习天数：{{ resolveActualStudyDaysText(stage) }}</div>
+                                <div class="stage-summary__item">考核时间：{{ stage.assessAt || '-' }}</div>
+                                <div class="stage-summary__item">最早考核：{{ stage.earliestAssessAt || '-' }}</div>
+                                <div class="stage-summary__item">最晚考核：{{ stage.latestAssessAt || '-' }}</div>
+                                <div class="stage-summary__item">培训超时：{{ resolveFlagText(stage.overtimeFlag) }}</div>
+                                <div class="stage-summary__item">考核延迟：{{ resolveFlagText(stage.delayedAssessFlag) }}</div>
+                                <div class="stage-summary__item">
+                                  阶段评级：
+                                  <DictTag
+                                    dict-code="assessment_stage_rating"
+                                    :value="stage.rating"
+                                    :fallback-label="resolveStageRatingText(stage)"
+                                    size="small"
+                                  />
+                                </div>
+                                <div class="stage-summary__item">自动开始下一阶段：{{ stage.autoStartNext ? '是' : '否' }}</div>
+                                <div class="stage-summary__item">时间说明：{{ stage.timingDescription || '-' }}</div>
+                                <div class="stage-summary__item">
+                                  答对题数：{{ stage.latestPaperQuestionTotal == null ? '-' : `${stage.latestPaperCorrectTotal ?? 0} / ${stage.latestPaperQuestionTotal ?? 0}` }}
+                                </div>
+                                <div class="stage-summary__item">最近得分：{{ stage.latestPaperScore ?? '-' }}</div>
+                                <div class="stage-summary__item">结果说明：{{ stage.latestPaperFinalComment || '-' }}</div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
+
+                      <NEmpty v-else description="暂无阶段信息" />
                     </div>
 
-                    <NEmpty v-else description="暂无阶段信息" />
-                  </div>
-
-                </div>
-              </NTabPane>
-
-              <NTabPane v-if="!hasFinalReviewAside" name="finalReview" tab="总体考评">
-                <div class="detail-tab-pane">
-                  <div class="detail-overview-grid">
-                    <div class="detail-section">
-                      <div class="detail-section__title">考评概览</div>
-                      <InfoGridCard :items="finalReviewSummaryItems" />
-                    </div>
-
-                    <div class="detail-section">
-                      <div class="detail-section__title">考评说明</div>
-                      <div class="detail-banner detail-banner--default">
-                        <div class="detail-banner__title">
-                          <span>总体考评结果说明</span>
-                        </div>
-                        <div class="detail-banner__meta">
-                          <span>评分模板：{{ detail?.finalTemplateName || '-' }}</span>
-                          <span>维度数量：{{ finalReviewDetailGroups.length }}</span>
-                        </div>
-                        <div class="detail-banner__desc">
-                          {{ detail?.finalComment || '暂无总体考评说明' }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="detail-section">
-                    <div class="detail-section__title">评分对比</div>
-
-                    <div v-if="finalReviewCompareColumns.length && finalReviewCompareGroups.length" class="final-review-compare">
-                      <div class="final-review-compare__scroll">
-                        <div class="final-review-compare__grid">
-                          <template v-for="group in finalReviewCompareGroups" :key="group.key">
-                            <div class="final-review-compare__group-card">
-                              <div class="final-review-compare__group-header">
-                                <div class="final-review-compare__group-name">{{ group.name }}</div>
-                                <NPopover trigger="hover" placement="left" :show-arrow="false">
-                                  <template #trigger>
-                                    <div class="final-review-compare__score-pill">
-                                      平均 {{ formatReviewScore(group.averageScore) }} / {{ formatReviewScore(group.maxScore) }}
-                                    </div>
-                                  </template>
-                                  <div class="final-review-compare__popover">
-                                    <div class="final-review-compare__popover-title">{{ group.name }}评分明细</div>
-                                    <div
-                                      v-for="(score, index) in group.scores"
-                                      :key="`${group.key}-dimension-popover-${index}`"
-                                      class="final-review-compare__popover-row"
+                    <div class="detail-section history-split-layout__aside">
+                      <div class="history-standard-panel">
+                        <NTabs v-model:value="historyStandardTab" type="line" animated class="history-standard-tabs">
+                          <NTabPane name="standard" tab="培训标准">
+                            <div class="history-standard-panel__content markdown-body" v-html="selectedHistoryStageStandardHtml"></div>
+                          </NTabPane>
+                          <NTabPane name="assessment" tab="考核说明">
+                            <div class="history-standard-panel__content markdown-body" v-html="selectedHistoryStageAssessmentHtml"></div>
+                          </NTabPane>
+                          <NTabPane name="achievement" tab="成果材料">
+                            <div class="history-standard-panel__pane">
+                              <div class="record-list record-list--achievement">
+                                <div class="record-list__header">
+                                  <div class="record-list__title">成果材料</div>
+                                  <div class="record-list__header-actions">
+                                    <NTag size="small" :bordered="false" :type="getStageAchievementStatusType(selectedHistoryStage)">
+                                      {{ getStageAchievementStatusText(selectedHistoryStage) }}
+                                    </NTag>
+                                    <input
+                                      :ref="el => setStageAchievementInputRef(getStageKey(selectedHistoryStage), el as HTMLInputElement | null)"
+                                      type="file"
+                                      class="stage-achievement-upload__input"
+                                      @change="event => selectedHistoryStage && handleStageAchievementFileChange(selectedHistoryStage, event)"
                                     >
-                                      <span>{{ finalReviewCompareColumns[index]?.reviewerName || '-' }}</span>
-                                      <strong>{{ formatReviewScore(score) }}</strong>
-                                    </div>
+                                    <NButton
+                                      v-if="canManageTraining && selectedHistoryStage"
+                                      size="small"
+                                      quaternary
+                                      type="primary"
+                                      :loading="achievementUploadingStageId === selectedHistoryStage.id"
+                                      :disabled="selectedHistoryStage.achievementSubmittedFlag"
+                                      @click="openStageAchievementUpload(selectedHistoryStage)"
+                                    >
+                                      上传成果
+                                    </NButton>
+                                    <NButton
+                                      v-if="canManageTraining && selectedHistoryStage"
+                                      size="small"
+                                      quaternary
+                                      type="primary"
+                                      :loading="achievementSubmittingStageId === selectedHistoryStage.id"
+                                      :disabled="!canSubmitStageAchievement(selectedHistoryStage)"
+                                      @click="handleSubmitStageAchievement(selectedHistoryStage)"
+                                    >
+                                      完成提交
+                                    </NButton>
                                   </div>
-                                </NPopover>
-                              </div>
-                              <div class="final-review-compare__rows">
-                                <div
-                                  v-for="item in group.items"
-                                  :key="`${group.key}-${item.key}`"
-                                  class="final-review-compare__item-card"
-                                >
-                                  <div class="final-review-compare__item-title">
-                                    <div class="final-review-compare__item-name">{{ item.name }}</div>
-                                    <div class="final-review-compare__item-meta">满分 {{ formatReviewScore(item.maxScore) }}</div>
-                                  </div>
-                                  <NPopover trigger="hover" placement="left" :show-arrow="false">
-                                    <template #trigger>
-                                      <div class="final-review-compare__score-pill final-review-compare__score-pill--item">
-                                        平均 {{ formatReviewScore(item.averageScore) }}
+                                </div>
+
+                                <div v-if="selectedHistoryStageAchievements.length" class="achievement-items">
+                                  <div
+                                    v-for="item in selectedHistoryStageAchievements"
+                                    :key="item.id || item.fileId"
+                                    class="achievement-item"
+                                  >
+                                    <div class="achievement-item__main">
+                                      <div class="achievement-item__title">{{ item.fileName || '未命名文件' }}</div>
+                                      <div class="achievement-item__meta">
+                                        <span>上传时间：{{ formatDateTime(item.createdAt) }}</span>
+                                        <span>备注：{{ item.remark || '-' }}</span>
                                       </div>
-                                    </template>
-                                    <div class="final-review-compare__popover">
-                                      <div class="final-review-compare__popover-title">{{ item.name }}评分明细</div>
-                                      <div
-                                        v-for="(score, index) in item.scores"
-                                        :key="`${group.key}-${item.key}-popover-${index}`"
-                                        class="final-review-compare__popover-row"
+                                    </div>
+                                    <div class="achievement-item__actions">
+                                      <NButton size="small" quaternary type="primary" @click="openStageAchievementFile(item)">
+                                        查看文件
+                                      </NButton>
+                                      <NButton
+                                        v-if="canManageTraining"
+                                        size="small"
+                                        quaternary
+                                        type="error"
+                                        :disabled="selectedHistoryStage?.achievementSubmittedFlag"
+                                        @click="handleDeleteStageAchievement(item)"
                                       >
-                                        <span>{{ finalReviewCompareColumns[index]?.reviewerName || '-' }}</span>
-                                        <strong>{{ formatReviewScore(score) }}</strong>
-                                      </div>
+                                        删除
+                                      </NButton>
                                     </div>
-                                  </NPopover>
+                                  </div>
+                                </div>
+
+                                <div v-else class="record-list__empty record-list__empty--achievement">
+                                  <NEmpty :description="selectedHistoryStage?.achievementRequired ? '当前阶段要求上传成果材料，暂未上传' : '当前阶段暂无成果材料'" />
                                 </div>
                               </div>
                             </div>
-                          </template>
+                          </NTabPane>
+                          <NTabPane name="record" tab="阶段考核记录">
+                            <div class="history-standard-panel__pane">
+                              <div class="record-list">
+                                <div class="record-list__title">阶段考核记录</div>
 
-                          <div class="final-review-compare__total-card">
-                            <div class="final-review-compare__footer-title">总分</div>
-                            <NPopover trigger="hover" placement="left" :show-arrow="false">
-                              <template #trigger>
-                                <div class="final-review-compare__score-pill final-review-compare__score-pill--total">
-                                  平均 {{ formatReviewScore(finalReviewAverageTotalScore) }}
+                                <div v-if="selectedHistoryStageRecords.length" class="record-items">
+                                  <div v-for="record in selectedHistoryStageRecords" :key="record.id" class="record-item">
+                                    <div class="record-item__main">
+                                      <div class="record-item__title">
+                                        <span>{{ record.stageName || selectedHistoryStage?.stageName || '-' }}</span>
+                                        <DictTag dict-code="assessment_paper_status" :value="record.status" />
+                                        <DictTag
+                                          dict-code="assessment_pass_result"
+                                          :value="resolveAssessmentPassResult(record.status, record.passFlag)"
+                                          :fallback-label="getRecordResultText(record)"
+                                        />
+                                      </div>
+
+                                      <div class="record-item__meta">
+                                        <span>考核时间：{{ record.createdAt || '-' }}</span>
+                                        <span>批阅时间：{{ record.reviewedAt || '-' }}</span>
+                                        <span>得分：{{ record.score ?? '-' }}</span>
+                                        <span>答对：{{ record.questionTotal == null ? '-' : `${record.correctTotal ?? 0} / ${record.questionTotal ?? 0}` }}</span>
+                                      </div>
+
+                                      <div class="record-item__comment">评语：{{ record.finalComment || '-' }}</div>
+                                    </div>
+
+                                    <div class="record-item__actions">
+                                      <NButton
+                                        size="small"
+                                        quaternary
+                                        :type="record.status === 'pending_review' ? 'warning' : 'primary'"
+                                        @click="handleViewPaper(record)"
+                                      >
+                                        {{ record.status === 'pending_review' ? '阅卷' : '查看详情' }}
+                                      </NButton>
+                                    </div>
+                                  </div>
                                 </div>
-                              </template>
-                              <div class="final-review-compare__popover">
-                                <div class="final-review-compare__popover-title">总分明细</div>
-                                <div
-                                  v-for="column in finalReviewCompareColumns"
-                                  :key="`${column.key}-total-popover`"
-                                  class="final-review-compare__popover-row"
-                                >
-                                  <span>{{ column.reviewerName }}</span>
-                                  <strong>{{ formatReviewScore(column.totalScore) }}</strong>
+
+                                <div v-else class="record-list__empty">
+                                  <NEmpty description="当前阶段暂无阶段考核记录" />
+                                  <NButton
+                                    v-if="selectedHistoryStageActionText"
+                                    size="small"
+                                    quaternary
+                                    :type="selectedHistoryStageLatestRecord?.status === 'pending_review' ? 'warning' : 'primary'"
+                                    @click="selectedHistoryStage && handleStageAction(selectedHistoryStage)"
+                                  >
+                                    {{ selectedHistoryStageActionText }}
+                                  </NButton>
                                 </div>
                               </div>
-                            </NPopover>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <NEmpty v-else description="暂无评委评分记录" />
-                  </div>
-
-                  <div v-if="finalReviewCompareColumns.length" class="detail-section">
-                    <div class="detail-section__title">评委说明</div>
-                    <div class="final-review-remarks">
-                      <div v-for="column in finalReviewCompareColumns" :key="`${column.key}-remark`" class="final-review-remarks__item">
-                        <div class="final-review-remarks__header">
-                          <span>{{ column.reviewerName }}</span>
-                          <span>{{ column.reviewerEmployeeNo || '无工号' }}</span>
-                        </div>
-                        <div class="final-review-remarks__content">{{ column.comment || '暂无评委说明' }}</div>
+                            </div>
+                          </NTabPane>
+                        </NTabs>
                       </div>
                     </div>
                   </div>
@@ -2191,6 +2505,7 @@ function openRetainDialog() {
               </aside>
             </div>
           </template>
+        </div>
       </NSpin>
 
       <PaperCreateDialog
@@ -2494,6 +2809,48 @@ function openRetainDialog() {
 
 <style scoped lang="scss">
 
+.detail-page-spin {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.detail-page-spin:deep(.n-spin-container),
+.detail-page-spin:deep(.n-spin-content) {
+  height: 100%;
+  min-height: 0;
+}
+
+.detail-page-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(31 35 41 / 18%) transparent;
+}
+
+.detail-page-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.detail-page-scroll::-webkit-scrollbar-thumb {
+  background: rgb(31 35 41 / 18%);
+  border-radius: 999px;
+}
+
+.detail-page-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:deep(.info-page-layout__content-inner) {
+  padding-bottom: 0 !important;
+}
+
 .detail-page-tabs {
   min-width: 360px;
 }
@@ -2582,6 +2939,104 @@ function openRetainDialog() {
   position: sticky;
   top: 0;
   min-width: 0;
+}
+
+.history-split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  gap: 20px;
+  align-items: start;
+  min-height: calc(100vh - 232px);
+}
+
+.history-split-layout__main,
+.history-split-layout__aside {
+  min-width: 0;
+}
+
+.history-split-layout__aside {
+  display: flex;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: calc(100vh - 232px);
+  max-height: calc(100vh - 232px);
+  margin-top: 0 !important;
+}
+
+.history-standard-panel {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  border-radius: 14px;
+  background: rgb(var(--container-bg-color));
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 1px 2px rgb(31 35 41 / 4%);
+}
+
+.history-standard-tabs {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.history-standard-tabs:deep(.n-tabs-nav) {
+  display: block !important;
+  margin-bottom: 0;
+  padding: 0 18px;
+  border-bottom: 1px solid rgb(var(--border-color) / 80%);
+}
+
+.history-standard-tabs:deep(.n-tabs-nav-scroll-wrapper),
+.history-standard-tabs:deep(.n-tabs-nav-scroll-content) {
+  display: flex !important;
+}
+
+.history-standard-tabs:deep(.n-tabs-tab) {
+  display: inline-flex !important;
+}
+.history-standard-tabs:deep(.n-tabs-tab) {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.history-standard-tabs:deep(.n-tabs-pane-wrapper) {
+  flex: 1;
+  min-height: 0;
+}
+
+.history-standard-tabs:deep(.n-tab-pane) {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.history-standard-panel__content {
+  flex: 1;
+  min-height: 0;
+  padding: 18px;
+  overflow-y: auto;
+  line-height: 1.75;
+}
+
+.history-standard-panel__pane {
+  flex: 1;
+  min-height: 0;
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.history-standard-panel__content :deep(h1),
+.history-standard-panel__content :deep(h2),
+.history-standard-panel__content :deep(h3),
+.history-standard-panel__content :deep(h4) {
+  margin-top: 0;
 }
 
 .final-review-aside {
@@ -3032,6 +3487,17 @@ html.dark .daily-calendar-cell--muted :deep(.n-tag) {
   gap: 14px;
 }
 
+.stage-item--selected > .stage-item__body {
+  background: rgb(var(--em-primary-color-rgb) / 0.05);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--em-primary-color-rgb) / 0.22),
+    0 1px 2px rgb(31 35 41 / 4%);
+}
+
+.stage-item--selected > .stage-item__rail {
+  position: relative;
+}
+
 .stage-item__rail {
   display: flex;
   width: 20px;
@@ -3061,6 +3527,11 @@ html.dark .daily-calendar-cell--muted :deep(.n-tag) {
     0 6px 16px rgb(15 23 42 / 10%);
 }
 
+.stage-item .stage-dot.is-success {
+  border-color: rgb(82 196 26 / 34%);
+  background: rgb(82 196 26);
+}
+
 .stage-dot.is-warning {
   border-color: rgb(250 173 20 / 34%);
   background: rgb(250 173 20);
@@ -3068,6 +3539,11 @@ html.dark .daily-calendar-cell--muted :deep(.n-tag) {
     0 0 0 4px rgb(250 173 20 / 18%),
     inset 0 0 0 2px rgb(var(--container-bg-color)),
     0 6px 16px rgb(15 23 42 / 10%);
+}
+
+.stage-item .stage-dot.is-warning {
+  border-color: rgb(250 173 20 / 34%);
+  background: rgb(250 173 20);
 }
 
 .stage-dot.is-error {
@@ -3079,6 +3555,11 @@ html.dark .daily-calendar-cell--muted :deep(.n-tag) {
     0 6px 16px rgb(15 23 42 / 10%);
 }
 
+.stage-item .stage-dot.is-error {
+  border-color: rgb(245 34 45 / 34%);
+  background: rgb(245 34 45);
+}
+
 .stage-dot.is-info {
   border-color: rgb(32 128 240 / 34%);
   background: rgb(32 128 240);
@@ -3086,6 +3567,11 @@ html.dark .daily-calendar-cell--muted :deep(.n-tag) {
     0 0 0 4px rgb(32 128 240 / 18%),
     inset 0 0 0 2px rgb(var(--container-bg-color)),
     0 6px 16px rgb(15 23 42 / 10%);
+}
+
+.stage-item .stage-dot.is-info {
+  border-color: rgb(32 128 240 / 34%);
+  background: rgb(32 128 240);
 }
 
 .stage-line {
@@ -3119,6 +3605,8 @@ html.dark .stage-item__body {
   align-items: center;
   column-gap: 16px;
   row-gap: 12px;
+  min-height: 88px;
+  box-sizing: border-box;
   margin-bottom: 12px;
   cursor: pointer;
 }
@@ -3191,6 +3679,80 @@ html.dark .stage-item__body {
   background: rgb(var(--layout-bg-color));
   box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 85%);
   color: var(--n-text-color-2);
+}
+
+.record-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.record-list__header .record-list__title {
+  margin-bottom: 0;
+}
+
+.record-list__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stage-achievement-upload__input {
+  display: none;
+}
+
+.achievement-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.achievement-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgb(var(--layout-bg-color));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color) / 85%);
+}
+
+.achievement-item__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.achievement-item__title {
+  color: var(--n-text-color-1);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.achievement-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 6px;
+  color: var(--n-text-color-3);
+  font-size: 12px;
+}
+
+.achievement-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.record-list__empty--achievement {
+  padding: 20px 0 12px;
 }
 
 .detail-banner {
@@ -3785,6 +4347,26 @@ html.dark .final-review-compare--aside {
 }
 
 @media (width <= 960px) {
+  .history-split-layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .history-split-layout__aside {
+    position: static;
+    height: auto;
+    max-height: none;
+  }
+
+  .history-standard-panel {
+    min-height: 0;
+  }
+
+  .history-standard-panel__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .detail-content-layout--with-aside {
     grid-template-columns: 1fr;
   }
@@ -3847,6 +4429,17 @@ html.dark .final-review-compare--aside {
 
   .stage-summary {
     grid-template-columns: 1fr;
+  }
+
+  .record-list__header,
+  .achievement-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .record-list__header-actions,
+  .achievement-item__actions {
+    justify-content: flex-start;
   }
 
   .daily-detail-grid {

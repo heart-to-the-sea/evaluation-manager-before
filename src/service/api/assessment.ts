@@ -10,6 +10,8 @@ import type {
   AssessmentFinalTemplateVo,
   AssessmentInternPathBo,
   AssessmentPathDailyCalendarVo,
+  AssessmentStageAchievementBo,
+  AssessmentStageAchievementVo,
   AssessmentStageActionBo,
   AssessmentStageDailyReportBo,
   AssessmentStageDailyReportVo,
@@ -206,8 +208,28 @@ export function fetchAssessmentPathStageStart(data: AssessmentStageActionBo) {
   return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_START, method: 'put', data });
 }
 
+export function fetchAssessmentPathStageAssessRequest(data: AssessmentStageActionBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_ASSESS_REQUEST, method: 'put', data });
+}
+
 export function fetchAssessmentPathStageEnd(data: AssessmentStageActionBo) {
   return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_END, method: 'put', data });
+}
+
+export function fetchAssessmentPathStageAchievementList(pathStageId: string) {
+  return request<AssessmentStageAchievementVo[]>({ url: URL.ASSESSMENT_PATH_STAGE_ACHIEVEMENT_LIST, method: 'get', params: { pathStageId } });
+}
+
+export function fetchAssessmentPathStageAchievementSave(data: AssessmentStageAchievementBo) {
+  return request<AssessmentStageAchievementVo>({ url: URL.ASSESSMENT_PATH_STAGE_ACHIEVEMENT_SAVE, method: 'post', data });
+}
+
+export function fetchAssessmentPathStageAchievementSubmit(data: AssessmentStageActionBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_ACHIEVEMENT_SUBMIT, method: 'put', data });
+}
+
+export function fetchAssessmentPathStageAchievementDelete(id: string) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_STAGE_ACHIEVEMENT_DELETE, method: 'delete', params: { id } });
 }
 
 export function fetchAssessmentPathStageDailyList(pathStageId: string) {

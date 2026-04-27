@@ -380,7 +380,9 @@ export interface AssessmentStageVo {
   code?: string;
   name?: string;
   description?: string;
+  remark?: string;
   stageColor?: string;
+  achievementRequired?: boolean;
   sort?: number;
   status?: string;
   minStudyDays?: number;
@@ -398,7 +400,9 @@ export interface AssessmentStageBo extends PageQuery {
   code?: string;
   name?: string;
   description?: string;
+  remark?: string;
   stageColor?: string;
+  achievementRequired?: boolean;
   sort?: number;
   status?: string;
   minStudyDays?: number;
@@ -610,7 +614,15 @@ export interface AssessmentInternPathStageVo {
   status?: string;
   minStudyDays?: number;
   maxStudyDays?: number;
+  achievementRequired?: boolean;
+  achievementSubmittedFlag?: boolean;
+  achievementSubmittedAt?: string;
+  achievementCount?: number;
+  achievementUploadedFlag?: boolean;
   latestPaperId?: string;
+  assessRequestedFlag?: boolean;
+  assessRequestReason?: string;
+  assessRequestedAt?: string;
   latestPaperStatus?: string;
   violationFlag?: boolean;
   latestPaperQuestionTotal?: number;
@@ -636,6 +648,35 @@ export interface AssessmentInternPathStageVo {
   reviewedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  achievements?: AssessmentStageAchievementVo[];
+}
+
+export interface AssessmentStageAchievementVo {
+  id?: string;
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  stageId?: string;
+  stageName?: string;
+  fileId?: string;
+  fileName?: string;
+  fileUrl?: string;
+  remark?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentStageAchievementBo {
+  id?: string;
+  pathId?: string;
+  pathStageId?: string;
+  userId?: string;
+  stageId?: string;
+  stageName?: string;
+  fileId?: string;
+  fileName?: string;
+  fileUrl?: string;
+  remark?: string;
 }
 
 export interface AssessmentInternPathStageBo {
@@ -655,6 +696,7 @@ export interface AssessmentStageActionBo {
   rating?: string;
   passFlag?: boolean;
   finalComment?: string;
+  assessRequestReason?: string;
   autoStartNext?: boolean;
   finalItems?: AssessmentFinalReviewItemBo[];
 }

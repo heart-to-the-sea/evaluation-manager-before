@@ -30,7 +30,7 @@ const tableData = ref<RowData[]>([]);
 const showDialog = ref(false);
 const editData = ref<AssessmentStageVo | null>(null);
 const { handleSorter, getSortOrder, appendSorter, createSorter, createSorterRender } = useTableSorter(() => loadData());
-const sortableColumnKeys = new Set(['code', 'name', 'passScore', 'sort', 'status', 'description', 'updatedAt']);
+const sortableColumnKeys = new Set(['code', 'name', 'passScore', 'sort', 'status', 'remark', 'updatedAt']);
 
 const pagination = reactive({
   page: 1,
@@ -90,7 +90,12 @@ const columns = computed<DataTableColumns<RowData>>(() =>
     align: 'center',
     render: row => <DictTag dictCode="assessment_enable_status" value={row.status} />
   },
-  { title: '说明', key: 'description', minWidth: 220, render: row => row.description || '-' },
+  {
+    title: '备注',
+    key: 'remark',
+    minWidth: 220,
+    render: row => row.remark || '-'
+  },
   { title: '更新时间', key: 'updatedAt', width: 180 },
   {
     title: '操作',
@@ -274,4 +279,5 @@ async function handleDialogClose(submitted = false) {
     inset 0 0 0 1px rgb(var(--border-color)),
     0 0 0 4px rgb(var(--em-primary-color-rgb) / 0.08);
 }
+
 </style>
