@@ -16,6 +16,20 @@ export const MENU_ADD = '/menu/add';
 export const MENU_UPDATE = '/menu/update';
 export const MENU_DELETE = '/menu/delete';
 
+export const STORAGE_LIST = '/storage/list';
+export const STORAGE_GET_BY_ID = '/storage/getById';
+export const STORAGE_ADD = '/storage/add';
+export const STORAGE_UPDATE = '/storage/update';
+export const STORAGE_DELETE = '/storage/delete';
+export const STORAGE_TEST_CONNECTION = '/storage/testConnection';
+export const STORAGE_SET_DEFAULT = '/storage/default';
+export const STORAGE_OPTIONS = '/storage/options';
+
+export const FILE_LIST = '/file/list';
+export const FILE_UPLOAD = '/file/upload';
+export const FILE_DELETE = '/file/delete';
+export const FILE_DOWNLOAD = '/file/download';
+
 export const ROLE_LIST = '/role/list';
 export const ROLE_GET_BY_ID = '/role/getById';
 export const ROLE_ADD = '/role/add';

@@ -138,6 +138,10 @@ const pagination = reactive({
   }
 });
 
+const maxStageCount = computed(() => Math.max(0, ...tableData.value.map(row => row.stages?.length || 0)));
+const stageProgressWidth = computed(() => Math.max(420, 120 + maxStageCount.value * 60));
+const tableScrollX = computed(() => 68 + 160 + 180 + 140 + 120 + stageProgressWidth.value + 180 + 400 + 64);
+
 const userSelectOptions = computed<SelectOption[]>(() =>
   userOptions.value.map(item => ({
     label: `${item.name || '-'}${item.employeeNo ? `（${item.employeeNo}）` : ''}`,
@@ -188,7 +192,7 @@ const columns = computed<DataTableColumns<RowData>>(() => ([
   {
     title: TEXT.progress,
     key: 'stages',
-    minWidth: 420,
+    width: stageProgressWidth.value,
     render: row => renderStageProgress(row.stages || [], row)
   },
   {
@@ -598,7 +602,6 @@ function getStageLineStyle(stage: AssessmentInternPathStageVo, row?: RowData) {
   return {
     width: '42px',
     height: '4px',
-    margin: '0 8px',
     borderRadius: '999px',
     background: visual.lineColor,
     boxShadow: `inset 0 0 0 1px ${visual.borderColor}`,
@@ -626,7 +629,6 @@ function getProgressLineStyle(visual: ProgressVisual) {
   return {
     width: '42px',
     height: '4px',
-    margin: '0 8px',
     borderRadius: '999px',
     background: visual.lineColor,
     boxShadow: `inset 0 0 0 1px ${visual.borderColor}`,
@@ -725,13 +727,14 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[], row: RowData
   const firstStageVisual = getStageVisual(stages[0], row);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', minHeight: '36px' }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: '36px' }}>
       <div
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          maxWidth: '100%',
-          overflowX: 'auto',
+          flexWrap: 'nowrap',
+          width: 'max-content',
+          minWidth: 'max-content',
           padding: '6px 2px'
         }}
       >
@@ -801,6 +804,7 @@ function renderStageProgress(stages: AssessmentInternPathStageVo[], row: RowData
       :data="tableData"
       :loading="loading"
       :pagination="pagination"
+      :scroll-x="tableScrollX"
       :row-key="row => row.key"
       remote
       flex-height

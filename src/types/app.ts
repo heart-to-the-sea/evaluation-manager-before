@@ -135,6 +135,79 @@ export interface MenuBo extends PageQuery {
   keepAlive?: boolean;
 }
 
+export type StorageConfigType = 'MINIO' | 'ALIYUN' | 'HUAWEI' | 'TENCENT' | 'LOCAL';
+
+export interface StorageConfigVo {
+  id?: string;
+  name?: string;
+  storageGroup?: string;
+  storageType?: StorageConfigType | string;
+  storageTypeLabel?: string;
+  endpoint?: string;
+  bucketName?: string;
+  accessKey?: string;
+  secretKey?: string;
+  region?: string;
+  basePath?: string;
+  publicUrl?: string;
+  pathPrefix?: string;
+  status?: number;
+  statusLabel?: string;
+  defaultFlag?: boolean;
+  remark?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StorageConfigBo extends PageQuery {
+  id?: string;
+  name?: string;
+  storageGroup?: string;
+  storageType?: StorageConfigType | string;
+  endpoint?: string;
+  bucketName?: string;
+  accessKey?: string;
+  secretKey?: string;
+  region?: string;
+  basePath?: string;
+  publicUrl?: string;
+  pathPrefix?: string;
+  status?: number;
+  defaultFlag?: boolean;
+  remark?: string;
+}
+
+export interface FileRecordVo {
+  id?: string;
+  storageConfigId?: string;
+  storageGroup?: string;
+  storageType?: StorageConfigType | string;
+  storageTypeLabel?: string;
+  storageName?: string;
+  fileName?: string;
+  storedName?: string;
+  filePath?: string;
+  fileUrl?: string;
+  fileSize?: number;
+  contentType?: string;
+  uploaderId?: string;
+  uploaderName?: string;
+  remark?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FileRecordBo extends PageQuery {
+  id?: string;
+  storageConfigId?: string;
+  storageGroup?: string;
+  storageType?: StorageConfigType | string;
+  storageName?: string;
+  fileName?: string;
+  uploaderName?: string;
+  remark?: string;
+}
+
 export interface RoleVo {
   id?: string;
   name?: string;
@@ -849,6 +922,7 @@ export interface AssessmentInternPathVo {
   createdAt?: string;
   updatedAt?: string;
   stages?: AssessmentInternPathStageVo[];
+  dailyCalendar?: AssessmentPathDailyCalendarVo;
   finalReviewDimensions?: AssessmentFinalReviewDimensionVo[];
   finalReviewRecords?: AssessmentFinalReviewRecordVo[];
 }

@@ -14,6 +14,18 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     component: 'view.system-manager.dict-manager'
   },
   {
+    label: '存储管理',
+    routeKey: 'system_manager_storage',
+    routePath: '/system-manager/storage',
+    component: 'view.system-manager.storage.index'
+  },
+  {
+    label: '文件管理',
+    routeKey: 'system_manager_file',
+    routePath: '/system-manager/file',
+    component: 'view.system-manager.file.index'
+  },
+  {
     label: '菜单管理',
     routeKey: 'system_manager_menu',
     routePath: '/system-manager/menu',
@@ -60,6 +72,12 @@ export const PAGE_ROUTE_TEMPLATES: PageRouteTemplate[] = [
     routeKey: 'intern_assessment',
     routePath: '/intern-assessment',
     component: 'layout.base'
+  },
+  {
+    label: '学员工作台',
+    routeKey: 'intern_assessment_workbench',
+    routePath: '/intern-assessment/workbench',
+    component: 'view.intern-assessment.workbench.index'
   },
   {
     label: '培训管理',
