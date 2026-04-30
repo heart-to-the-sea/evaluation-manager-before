@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NUXT_DEVTOOLS === 'true' },
   ssr: false,
   srcDir: 'src/',
   css: [
@@ -16,7 +16,7 @@ export default defineNuxtConfig({
   modules: ['@pinia/nuxt', '@unocss/nuxt'],
   runtimeConfig: {
     public: {
-      appName: '评估管理系统',
+      appName: process.env.NUXT_PUBLIC_APP_NAME || '评价管理系统',
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/em'
     }
   },
@@ -25,7 +25,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: '评估管理系统',
+      title: process.env.NUXT_PUBLIC_APP_NAME || '评价管理系统',
       meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }]
     }
   },
