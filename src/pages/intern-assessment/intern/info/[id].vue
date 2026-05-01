@@ -8,6 +8,7 @@ import InfoGridCard from '@/components/common/InfoGridCard.vue';
 import PaperCreateDialog from '@/components/features/intern-assessment/PaperCreateDialog.vue';
 import PaperInfoModal from '@/components/features/intern-assessment/PaperInfoModal.vue';
 import PathDailyCalendar from '@/components/features/intern-assessment/PathDailyCalendar.vue';
+import PathUsualPerformanceDialog from '@/components/features/intern-assessment/PathUsualPerformanceDialog.vue';
 import InfoPageLayout from '@/components/pages/InfoPageLayout.vue';
 import { renderMarkdown } from '@/utils/markdown';
 import {
@@ -66,6 +67,7 @@ const showFinalReviewDialog = ref(false);
 const showViolationDialog = ref(false);
 const showExitDialog = ref(false);
 const showRetainDialog = ref(false);
+const showUsualPerformanceDialog = ref(false);
 const activePaperId = ref<string | null>(null);
 const activePaperReadonly = ref(true);
 const stageAchievementInputRefs = ref<Record<string, HTMLInputElement | null>>({});
@@ -780,6 +782,72 @@ const currentAssessActionText = computed(() => {
   if (currentAssessActionMode.value === 'create') return '发起阶段考核';
   return '发起阶段考核';
 });
+const canEditUsualPerformance = computed(() => Boolean(detail.value?.status) && detail.value?.status !== 'not_started');
+const hasUsualPerformanceContent = computed(() =>
+  [
+    detail.value?.usualTechAbility,
+    detail.value?.usualTechAbilityLevel,
+    detail.value?.usualCommunicationAbility,
+    detail.value?.usualAttitude,
+    detail.value?.usualAttitudeLevel,
+    detail.value?.usualPressureResistance,
+    detail.value?.usualPressureResistanceLevel,
+    detail.value?.usualProblemSolving,
+    detail.value?.usualProblemSolvingLevel,
+    detail.value?.usualSelfLearning,
+    detail.value?.usualSelfLearningLevel,
+    detail.value?.usualPersonality,
+    detail.value?.usualProblemUnderstanding,
+    detail.value?.usualProblemUnderstandingLevel
+  ].some(item => Boolean(String(item || '').trim()))
+);
+const usualPerformanceActionText = computed(() => (hasUsualPerformanceContent.value ? '修改综合评价' : '编辑综合评价'));
+const usualPerformanceItems = computed(() => [
+  {
+    label: '技术能力等级',
+    dictCode: 'assessment_usual_performance_level',
+    dictValue: detail.value?.usualTechAbilityLevel,
+    fallbackLabel: detail.value?.usualTechAbilityLevel || '-'
+  },
+  { label: '技术能力评价', text: detail.value?.usualTechAbility || '-' },
+  { label: '沟通能力评价', text: detail.value?.usualCommunicationAbility || '-' },
+  {
+    label: '态度等级',
+    dictCode: 'assessment_usual_performance_level',
+    dictValue: detail.value?.usualAttitudeLevel,
+    fallbackLabel: detail.value?.usualAttitudeLevel || '-'
+  },
+  { label: '态度评价', text: detail.value?.usualAttitude || '-' },
+  {
+    label: '抗压能力等级',
+    dictCode: 'assessment_usual_performance_level',
+    dictValue: detail.value?.usualPressureResistanceLevel,
+    fallbackLabel: detail.value?.usualPressureResistanceLevel || '-'
+  },
+  { label: '抗压能力评价', text: detail.value?.usualPressureResistance || '-' },
+  {
+    label: '解决问题能力等级',
+    dictCode: 'assessment_usual_performance_level',
+    dictValue: detail.value?.usualProblemSolvingLevel,
+    fallbackLabel: detail.value?.usualProblemSolvingLevel || '-'
+  },
+  { label: '解决问题能力评价', text: detail.value?.usualProblemSolving || '-' },
+  {
+    label: '自学能力等级',
+    dictCode: 'assessment_usual_performance_level',
+    dictValue: detail.value?.usualSelfLearningLevel,
+    fallbackLabel: detail.value?.usualSelfLearningLevel || '-'
+  },
+  { label: '自学能力评价', text: detail.value?.usualSelfLearning || '-' },
+  {
+    label: '问题理解能力等级',
+    dictCode: 'assessment_usual_performance_level',
+    dictValue: detail.value?.usualProblemUnderstandingLevel,
+    fallbackLabel: detail.value?.usualProblemUnderstandingLevel || '-'
+  },
+  { label: '问题理解能力评价', text: detail.value?.usualProblemUnderstanding || '-' },
+  { label: '性格评价', text: detail.value?.usualPersonality || '-' }
+]);
 
 const basicInfoItems = computed(() => [
   { label: '实习生', text: detail.value?.userName || userDetail.value?.name || userDetail.value?.username || '-' },
@@ -1779,6 +1847,13 @@ async function handlePaperDialogRefresh() {
   await loadDetail();
 }
 
+async function handleUsualPerformanceDialogClose(submitted = false) {
+  showUsualPerformanceDialog.value = false;
+  if (submitted) {
+    await loadDetail();
+  }
+}
+
 function handleRouteAutoAction() {
   if (routeActionHandled.value) return;
   if (route.query.action !== 'violation') return;
@@ -1979,6 +2054,14 @@ function openRetainDialog() {
       >
         总体考评
       </NButton>
+      <NButton
+        v-if="canEditUsualPerformance && detail?.id"
+        secondary
+        type="primary"
+        @click="showUsualPerformanceDialog = true"
+      >
+        {{ usualPerformanceActionText }}
+      </NButton>
       <NButton v-if="canManageTraining" secondary type="error" @click="openExitDialog()">
         标记劝退
       </NButton>
@@ -2060,6 +2143,11 @@ function openRetainDialog() {
                         <div class="detail-section__title">培训信息</div>
                         <InfoGridCard :items="trainingOverviewItems" />
                       </div>
+                    </div>
+
+                    <div class="detail-section">
+                      <div class="detail-section__title">综合评价</div>
+                      <InfoGridCard :items="usualPerformanceItems" />
                     </div>
 
                     <div class="detail-section">
@@ -2519,6 +2607,13 @@ function openRetainDialog() {
         :default-template-name="detail?.templateName || null"
         :lock-current-stage="true"
         @close="handleAssessClose"
+      />
+
+      <PathUsualPerformanceDialog
+        :show="showUsualPerformanceDialog"
+        :path-id="detail?.id || null"
+        :data="detail"
+        @close="handleUsualPerformanceDialogClose"
       />
 
       <PaperInfoModal :show="showPaperDialog" :paper-id="activePaperId" :readonly="activePaperReadonly" @close="handlePaperDialogClose" @refresh="handlePaperDialogRefresh" />
