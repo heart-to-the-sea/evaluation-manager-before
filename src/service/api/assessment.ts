@@ -9,6 +9,7 @@ import type {
   AssessmentFinalTemplateBo,
   AssessmentFinalTemplateVo,
   AssessmentInternPathBo,
+  AssessmentPathUsualPerformanceBo,
   AssessmentPathDailyCalendarVo,
   AssessmentStageAchievementBo,
   AssessmentStageAchievementVo,
@@ -174,6 +175,10 @@ export function fetchAssessmentPathUpdate(data: AssessmentInternPathBo) {
 
 export function fetchAssessmentPathDelete(id: string) {
   return request<void>({ url: URL.ASSESSMENT_PATH_DELETE, method: 'delete', params: { id } });
+}
+
+export function fetchAssessmentPathUsualPerformanceSave(data: AssessmentPathUsualPerformanceBo) {
+  return request<void>({ url: URL.ASSESSMENT_PATH_USUAL_PERFORMANCE_SAVE, method: 'put', data });
 }
 
 export function fetchAssessmentPathEnd(data: AssessmentStageActionBo) {

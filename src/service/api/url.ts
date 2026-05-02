@@ -87,6 +87,7 @@ export const ASSESSMENT_PATH_CALCULATE = '/assessment/path/calculate';
 export const ASSESSMENT_PATH_ADD = '/assessment/path/add';
 export const ASSESSMENT_PATH_UPDATE = '/assessment/path/update';
 export const ASSESSMENT_PATH_DELETE = '/assessment/path/delete';
+export const ASSESSMENT_PATH_USUAL_PERFORMANCE_SAVE = '/assessment/path/usualPerformance/save';
 export const ASSESSMENT_PATH_END = '/assessment/path/end';
 export const ASSESSMENT_PATH_FINAL_REVIEW = '/assessment/path/final-review';
 export const ASSESSMENT_FINAL_REVIEW_LINK_CREATE = '/assessment/final-review-link/create';

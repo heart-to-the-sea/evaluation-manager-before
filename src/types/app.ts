@@ -960,6 +960,20 @@ export interface AssessmentInternPathVo {
   finalPassFlag?: boolean;
   finalScore?: number | string;
   finalComment?: string;
+  usualPersonality?: string;
+  usualAttitude?: string;
+  usualAttitudeLevel?: string;
+  usualTechAbility?: string;
+  usualTechAbilityLevel?: string;
+  usualCommunicationAbility?: string;
+  usualProblemUnderstanding?: string;
+  usualProblemUnderstandingLevel?: string;
+  usualSelfLearning?: string;
+  usualSelfLearningLevel?: string;
+  usualPressureResistance?: string;
+  usualPressureResistanceLevel?: string;
+  usualProblemSolving?: string;
+  usualProblemSolvingLevel?: string;
   finalReviewedAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -977,6 +991,24 @@ export interface AssessmentInternPathBo extends PageQuery {
   trainingEndDate?: string;
   status?: string;
   stages?: AssessmentInternPathStageBo[];
+}
+
+export interface AssessmentPathUsualPerformanceBo {
+  pathId?: string;
+  usualPersonality?: string;
+  usualAttitude?: string;
+  usualAttitudeLevel?: string;
+  usualTechAbility?: string;
+  usualTechAbilityLevel?: string;
+  usualCommunicationAbility?: string;
+  usualProblemUnderstanding?: string;
+  usualProblemUnderstandingLevel?: string;
+  usualSelfLearning?: string;
+  usualSelfLearningLevel?: string;
+  usualPressureResistance?: string;
+  usualPressureResistanceLevel?: string;
+  usualProblemSolving?: string;
+  usualProblemSolvingLevel?: string;
 }
 
 export interface AssessmentScheduleCalcVo {
