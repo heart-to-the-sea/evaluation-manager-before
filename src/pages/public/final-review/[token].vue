@@ -812,14 +812,14 @@ function getDailyCellSummary(day: AssessmentPathDailyCalendarDayVo) {
             <NTabPane name="overview" tab="基本信息">
               <div class="public-tab-pane">
                 <div class="detail-overview-grid">
-                  <div class="detail-section">
+                  <div class="detail-section detail-section--boxed">
                     <div class="detail-section__title">基本信息</div>
-                    <InfoGridCard :items="basicInfoGridItems" />
+                    <InfoGridCard :items="basicInfoGridItems" :plain="true" />
                   </div>
 
-                  <div class="detail-section">
+                  <div class="detail-section detail-section--boxed">
                     <div class="detail-section__title">培训信息</div>
-                    <InfoGridCard :items="trainingInfoGridItems" />
+                    <InfoGridCard :items="trainingInfoGridItems" :plain="true" />
                   </div>
                 </div>
 
@@ -1303,6 +1303,28 @@ function getDailyCellSummary(day: AssessmentPathDailyCalendarDayVo) {
 
 .detail-section + .detail-section {
   margin-top: 20px;
+}
+
+.detail-section--boxed {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgb(var(--container-bg-color));
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 1px 2px rgb(31 35 41 / 4%);
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+html.dark .detail-section--boxed {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border-color)),
+    0 1px 2px rgb(0 0 0 / 18%);
+}
+
+.detail-section--boxed .detail-section__title {
+  margin-bottom: 14px;
 }
 
 .detail-section__title {
