@@ -11,6 +11,7 @@ interface Props {
   defaultType?: DictTagType;
   customColor?: string | null;
   className?: string | null;
+  colorMode?: 'auto' | 'soft' | 'solid';
   bordered?: boolean;
   size?: 'small' | 'medium' | 'large';
 }
@@ -22,6 +23,7 @@ const props = withDefaults(defineProps<Props>(), {
   defaultType: 'default',
   customColor: '',
   className: '',
+  colorMode: 'auto',
   bordered: false,
   size: 'small'
 });
@@ -96,10 +98,11 @@ const customStyle = computed(() => {
   if (!parsed) return undefined;
 
   const textColor = getTextColor(parsed);
-  const useSolid = textColor === '#ffffff';
+  const useSolid = props.colorMode === 'solid' || (props.colorMode === 'auto' && textColor === '#ffffff');
+  const displayTextColor = props.colorMode === 'soft' ? `rgb(${parsed.red}, ${parsed.green}, ${parsed.blue})` : textColor;
 
   return {
-    color: textColor,
+    color: displayTextColor,
     backgroundColor: useSolid ? `rgb(${parsed.red}, ${parsed.green}, ${parsed.blue})` : toRgba(parsed, 0.14),
     boxShadow: `inset 0 0 0 1px ${toRgba(parsed, useSolid ? 0.92 : 0.32)}`
   };

@@ -61,7 +61,7 @@ async function loadData() {
 
       <NEmpty v-else-if="!menuInfo" description="暂无菜单信息" />
 
-      <InfoGridCard v-else :items="detailItems" auto-columns :min-item-width="240" :max-columns="4" />
+      <InfoGridCard v-else :items="detailItems" auto-columns :min-item-width="240" :max-columns="4" :plain="true" />
     </template>
   </InfoPageLayout>
 </template>

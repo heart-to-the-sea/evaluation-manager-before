@@ -202,7 +202,7 @@ function toggleQuestionPanel(item: ReviewQuestionItem, field: 'showStem' | 'show
           <div class="detail-overview-grid">
             <div class="detail-section">
               <div class="detail-section__title">试卷信息</div>
-              <InfoGridCard :items="paperInfoItems" />
+              <InfoGridCard :items="paperInfoItems" :plain="true" />
             </div>
 
             <div class="detail-section">

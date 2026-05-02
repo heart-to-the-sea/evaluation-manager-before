@@ -370,7 +370,7 @@ async function handleRegenerate() {
 
       <div v-else class="paper-info-modal__body">
         <div class="paper-info-modal__summary">
-          <InfoGridCard :items="paperInfoItems" />
+          <InfoGridCard :items="paperInfoItems" :plain="true" />
         </div>
 
         <div class="paper-workspace">

@@ -966,6 +966,7 @@ export interface AssessmentInternPathVo {
   usualTechAbility?: string;
   usualTechAbilityLevel?: string;
   usualCommunicationAbility?: string;
+  usualCommunicationAbilityLevel?: string;
   usualProblemUnderstanding?: string;
   usualProblemUnderstandingLevel?: string;
   usualSelfLearning?: string;
@@ -1001,6 +1002,7 @@ export interface AssessmentPathUsualPerformanceBo {
   usualTechAbility?: string;
   usualTechAbilityLevel?: string;
   usualCommunicationAbility?: string;
+  usualCommunicationAbilityLevel?: string;
   usualProblemUnderstanding?: string;
   usualProblemUnderstandingLevel?: string;
   usualSelfLearning?: string;

@@ -111,7 +111,7 @@ async function loadDetail() {
       <NSpin :show="loading">
         <NEmpty v-if="!detail" description="暂无部门信息" />
 
-        <InfoGridCard v-else :items="detailItems" auto-columns :min-item-width="220" :max-columns="4" />
+        <InfoGridCard v-else :items="detailItems" auto-columns :min-item-width="220" :max-columns="4" :plain="true" />
       </NSpin>
     </template>
   </InfoPageLayout>

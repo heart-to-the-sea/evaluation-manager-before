@@ -110,6 +110,7 @@ function getDifficultyTagType(difficulty?: string): 'default' | 'success' | 'war
         v-if="stageInfoItems.length"
         :items="stageInfoItems"
         :columns="2"
+        :plain="true"
       />
       <NEmpty v-else description="暂无阶段信息" />
     </div>

@@ -8,6 +8,9 @@ interface InfoGridCardItem {
   dictCode?: string;
   dictValue?: string | number | null;
   fallbackLabel?: string;
+  levelDictCode?: string;
+  levelDictValue?: string | number | null;
+  levelFallbackLabel?: string;
 }
 
 const props = withDefaults(
@@ -17,12 +20,18 @@ const props = withDefaults(
     autoColumns?: boolean;
     minItemWidth?: number;
     maxColumns?: number;
+    compact?: boolean;
+    plain?: boolean;
+    plainOuterBorder?: boolean;
   }>(),
   {
     columns: 2,
     autoColumns: false,
     minItemWidth: 260,
-    maxColumns: 5
+    maxColumns: 5,
+    compact: false,
+    plain: false,
+    plainOuterBorder: false
   }
 );
 
@@ -75,7 +84,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="cardRef" class="info-grid-card">
+  <div
+    ref="cardRef"
+    class="info-grid-card"
+    :class="{ 'info-grid-card--compact': compact, 'info-grid-card--plain': plain, 'info-grid-card--plain-outer-border': plain && plainOuterBorder }"
+  >
     <div class="info-grid-card__grid" :style="gridStyle">
       <div v-for="item in items" :key="item.label" class="info-grid-card__item">
         <div class="info-grid-card__label">{{ item.label }}</div>
@@ -85,7 +98,17 @@ onBeforeUnmount(() => {
             :dict-code="item.dictCode"
             :value="item.dictValue"
             :fallback-label="item.fallbackLabel"
+            color-mode="soft"
           />
+          <div v-else-if="item.levelDictCode" class="info-grid-card__mixed">
+            <DictTag
+              :dict-code="item.levelDictCode"
+              :value="item.levelDictValue"
+              :fallback-label="item.levelFallbackLabel"
+              color-mode="soft"
+            />
+            <span>{{ resolveText(item.text) }}</span>
+          </div>
           <span v-else>{{ resolveText(item.text) }}</span>
         </div>
       </div>
@@ -143,6 +166,55 @@ html.dark .info-grid-card {
 
 .info-grid-card__value :deep(.n-tag) {
   max-width: 100%;
+}
+
+.info-grid-card__mixed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.info-grid-card--compact {
+  padding: 12px;
+}
+
+.info-grid-card--compact .info-grid-card__grid {
+  gap: 6px;
+}
+
+.info-grid-card--compact .info-grid-card__item {
+  padding: 6px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.info-grid-card--compact .info-grid-card__label {
+  flex-basis: 86px;
+}
+
+.info-grid-card--plain {
+  background: transparent;
+  box-shadow: none;
+  padding: 8px 0;
+}
+
+.info-grid-card--plain .info-grid-card__grid {
+  gap: 4px 12px;
+}
+
+.info-grid-card--plain .info-grid-card__item {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 6px 0;
+}
+
+.info-grid-card--plain-outer-border {
+  padding: 10px 12px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgb(var(--border-color));
 }
 
 @media (width <= 960px) {
